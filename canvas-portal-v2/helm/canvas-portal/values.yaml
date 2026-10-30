@@ -77,6 +77,13 @@ backend:
   auth:
     cookieSecure: false
     cookieSameSite: strict
+    # Groups (or realm roles) allowed to use the Helm and conformance APIs.
+    # Create this group in Keycloak and add the users who need access.
+    adminGroups:
+      - canvas-admin
+    # Escape hatch: when adminGroups is empty, allow any authenticated user
+    # instead of denying everyone.
+    allowAllAuthenticated: false
   image:
     repository: tmforumodacanvas/canvas-portal
     tag: backend-0.1.0

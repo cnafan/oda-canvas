@@ -12,6 +12,9 @@ concurrency:
 jobs:
   release-charts:
     runs-on: ubuntu-latest
+    # chart-releaser creates GitHub releases and pushes to gh-pages
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3

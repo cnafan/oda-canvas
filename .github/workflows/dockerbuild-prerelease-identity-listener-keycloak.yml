@@ -19,6 +19,8 @@ on:
 
 jobs:
   build-identity-listener-keycloak-prerelease-dockerfile-job:
+    # Docker Hub and Cosign secrets exist only in the upstream repository
+    if: github.repository == 'tmforum-oda/oda-canvas'
     runs-on: ubuntu-latest
     steps:
 

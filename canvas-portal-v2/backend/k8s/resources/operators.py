@@ -49,6 +49,9 @@ OPERATOR_SIGNATURES = {
         "api-operator-apisix",
         "apisix-operator",
     ),
+    "openan-operator": (
+        "openan-operator",
+    ),
 }
 
 TMF_OPERATOR_IDS: dict[str, tuple[str, str]] = {

@@ -1,5 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 import httpx
 from pydantic import BaseModel
 from auth.middleware import get_current_user, is_admin
@@ -137,25 +138,38 @@ async def login(payload: LoginPayload, response: Response):
     return AccessTokenResponse(access_token=tokens["access_token"], expires_in=tokens.get("expires_in"))
 
 
+def _session_expired(cfg: Settings) -> JSONResponse:
+    # Returned rather than raised, because cookies set on the injected Response are lost when raising.
+    response = JSONResponse(status_code=401, content={"detail": "Session expired"})
+    _clear_refresh_cookie(response, cfg)
+    return response
+
+
 @router.post("/refresh", response_model=AccessTokenResponse)
 async def refresh(request: Request, response: Response):
     cfg = get_settings()
     refresh_token = request.cookies.get(cfg.AUTH_REFRESH_COOKIE_NAME)
     if not refresh_token:
         raise HTTPException(status_code=401, detail="No active session")
-    async with httpx.AsyncClient(verify=False) as client:
-        resp = await client.post(
-            cfg.keycloak_token_url,
-            data={
-                "grant_type": "refresh_token",
-                "client_id": cfg.KEYCLOAK_CLIENT_ID,
-                "refresh_token": refresh_token,
-            },
-            timeout=10,
-        )
+    try:
+        async with httpx.AsyncClient(verify=False) as client:
+            resp = await client.post(
+                cfg.keycloak_token_url,
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": cfg.KEYCLOAK_CLIENT_ID,
+                    "refresh_token": refresh_token,
+                },
+                timeout=10,
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail="Identity provider unavailable") from None
+    if resp.status_code in (400, 401):
+        # Keycloak refused this refresh token, so the session has really ended.
+        # Other failures are temporary and must not end a session that is still valid.
+        return _session_expired(cfg)
     if resp.status_code != 200:
-        _clear_refresh_cookie(response, cfg)
-        raise HTTPException(status_code=401, detail="Session expired")
+        raise HTTPException(status_code=503, detail="Identity provider unavailable")
     tokens = resp.json()
     _set_refresh_cookie(response, cfg, tokens.get("refresh_token", ""), tokens.get("refresh_expires_in"))
     return AccessTokenResponse(access_token=tokens["access_token"], expires_in=tokens.get("expires_in"))

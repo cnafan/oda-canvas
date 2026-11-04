@@ -120,7 +120,7 @@ Login goes through the backend, not through `keycloak-js`.
 
 1. The login page posts `{username, password}` to `POST /auth/login`. The backend runs a Keycloak password grant against the `canvas-portal` client.
 2. The access token is returned in the response body and held **in memory only** by `frontend/src/lib/auth.ts`. The refresh token goes into an `httpOnly` cookie (`canvas_portal_refresh`, path `/auth`, `Secure` and `SameSite` set by `backend.auth.*`).
-3. On a page reload, `main.tsx` calls `POST /auth/refresh` to turn the cookie into a new access token. `useSessionManager` shows a warning before expiry. `client.ts` retries on a 401.
+3. On a page reload, `main.tsx` calls `POST /auth/refresh` to turn the cookie into a new access token. While the user is active, `useSessionManager` renews any access token older than 5 minutes. Once they stop, they get a warning 2 minutes before the token expires and are then logged out, so the idle timeout is about the token's lifetime, which is set in Keycloak (Access Token Lifespan). A temporary refresh failure is retried and doesn't end the session. `client.ts` retries on a 401.
 4. `POST /auth/logout` revokes the refresh token at Keycloak and clears the cookie.
 5. Every `/api/*` route uses the `get_current_user` dependency. It verifies the bearer JWT (RS256, signature via the realm JWKS, `exp` and `iss`) and builds an `AuthUser` from `preferred_username`, `email`, `groups` and `sub`.
 

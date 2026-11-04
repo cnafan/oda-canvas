@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -385,3 +386,237 @@ def test_unreachable_on_bad_responses(response):
     summary = get_ai_gateways_summary(client_for(lambda r: response))
 
     assert summary["state"] == "unreachable"
+
+
+class _Chunks(httpx.AsyncByteStream):
+    def __init__(self, chunks):
+        self.chunks = chunks
+        self.closed = False
+
+    async def __aiter__(self):
+        for chunk in self.chunks:
+            yield chunk
+
+    async def aclose(self):
+        self.closed = True
+
+
+def _sse(*chunks):
+    return [f"data: {json.dumps(chunk)}\n\n".encode() for chunk in chunks]
+
+
+def _delta(**delta):
+    return {"choices": [{"delta": delta, "finish_reason": None}]}
+
+
+FINISHED = {"choices": [{"delta": {}, "finish_reason": "stop"}]}
+
+
+@pytest.fixture
+def llm_settings(monkeypatch):
+    monkeypatch.setattr(
+        ai_gateways,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "AGENTGATEWAY_CONFIG_URL": "http://gateway:8081/config_dump",
+                "AGENTGATEWAY_LLM_URL": "http://gateway/v1/chat/completions",
+                "AGENTGATEWAY_API_KEY": "portal-key",
+            },
+        ),
+    )
+
+
+def _run_test(handler, model="m"):
+    async def collect():
+        stream = ai_gateways.stream_model_test(model, transport=httpx.MockTransport(handler))
+        return [json.loads(line) async for line in stream]
+
+    return asyncio.run(collect())
+
+
+def _streaming(chunks):
+    return lambda request: httpx.Response(
+        200, headers={"content-type": "text/event-stream"}, stream=_Chunks(chunks)
+    )
+
+
+def test_model_test_sends_only_the_fixed_request(llm_settings):
+    seen = {}
+
+    def handler(request):
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, stream=_Chunks([b"data: [DONE]\n\n"]))
+
+    _run_test(handler)
+    assert seen["url"] == "http://gateway/v1/chat/completions"
+    assert seen["body"] == {
+        "model": "m",
+        "messages": [{"role": "user", "content": "PING"}],
+        "stream": True,
+        "max_tokens": ai_gateways.LLM_TEST_MAX_TOKENS,
+    }
+
+
+def test_model_test_streams_reasoning_then_content(llm_settings):
+    chunks = _sse(
+        _delta(role="assistant", content=""),
+        _delta(reasoning="Think"),
+        _delta(reasoning_content="ing"),
+        _delta(content="PONG"),
+        FINISHED,
+    ) + [b"data: [DONE]\n\n"]
+    assert _run_test(_streaming(chunks)) == [
+        {"type": "reasoning", "text": "Think"},
+        {"type": "reasoning", "text": "ing"},
+        {"type": "content", "text": "PONG"},
+        {"type": "done", "finishReason": "stop"},
+    ]
+
+
+def test_model_test_handles_events_split_across_chunks(llm_settings):
+    joined = b"".join(_sse(_delta(content="PONG"), FINISHED)) + b"data: [DONE]\n\n"
+    pieces = [joined[i : i + 7] for i in range(0, len(joined), 7)]
+    assert _run_test(_streaming(pieces)) == [
+        {"type": "content", "text": "PONG"},
+        {"type": "done", "finishReason": "stop"},
+    ]
+
+
+def test_model_test_finishes_without_a_done_marker(llm_settings):
+    assert _run_test(_streaming(_sse(_delta(content="hi"), FINISHED)))[-1] == {
+        "type": "done",
+        "finishReason": "stop",
+    }
+
+
+def test_model_test_reports_a_stream_cut_short(llm_settings):
+    assert _run_test(_streaming(_sse(_delta(content="hi"))))[-1]["type"] == "error"
+
+
+@pytest.mark.parametrize("status, text", [(429, "rate limit"), (502, "HTTP 502"), (401, "HTTP 401")])
+def test_model_test_upstream_failure_hides_the_body(llm_settings, status, text):
+    events = _run_test(lambda request: httpx.Response(status, text="upstream 203.0.113.10 sk-secretsecret"))
+    assert len(events) == 1 and events[0]["type"] == "error"
+    assert text in events[0]["message"]
+    assert "203.0.113.10" not in events[0]["message"] and "secret" not in events[0]["message"]
+
+
+def test_model_test_error_in_the_stream_hides_its_text(llm_settings):
+    events = _run_test(_streaming(_sse(_delta(content="a"), {"error": {"message": "at 203.0.113.10"}})))
+    assert events == [
+        {"type": "content", "text": "a"},
+        {"type": "error", "message": "The model reported an error."},
+    ]
+
+
+def test_model_test_rejects_an_invalid_stream(llm_settings):
+    assert _run_test(_streaming([b"data: {not json\n\n"]))[-1]["type"] == "error"
+
+
+def test_model_test_reports_connection_failures_without_details(llm_settings):
+    def handler(request):
+        raise httpx.ConnectError("http://203.0.113.10 refused")
+
+    assert _run_test(handler) == [{"type": "error", "message": "Request failed: ConnectError."}]
+
+
+def test_model_test_stops_at_the_size_limit(llm_settings, monkeypatch):
+    monkeypatch.setattr(ai_gateways, "MAX_LLM_TEST_RESPONSE_BYTES", 40)
+    events = _run_test(_streaming(_sse(*[_delta(content="x" * 20)] * 5)))
+    assert events[-1]["type"] == "error"
+    assert sum(event["type"] == "content" for event in events) < 5
+
+
+def test_model_test_stops_at_the_deadline(llm_settings, monkeypatch):
+    monkeypatch.setattr(ai_gateways, "LLM_TEST_DEADLINE_SECONDS", -1)
+    assert _run_test(_streaming(_sse(_delta(content="x"))))[-1]["type"] == "error"
+
+
+def test_closing_the_model_test_closes_the_upstream_stream(llm_settings):
+    upstream = _Chunks(_sse(_delta(content="a"), _delta(content="b")))
+
+    async def close_after_first_event():
+        stream = ai_gateways.stream_model_test(
+            "m", transport=httpx.MockTransport(lambda request: httpx.Response(200, stream=upstream))
+        )
+        await stream.__anext__()
+        await stream.aclose()
+
+    asyncio.run(close_after_first_event())
+    assert upstream.closed
+
+
+def _check_model(model, handler):
+    asyncio.run(ai_gateways.ensure_model_is_active(model, transport=httpx.MockTransport(handler)))
+
+
+def _config_with_models(active=(), rejected=()):
+    return {
+        "backends": [
+            {
+                "backend": {
+                    "ai": {
+                        "name": "llm",
+                        "target": {
+                            "providers": [
+                                {
+                                    "active": {name: {"endpoint": {}} for name in active},
+                                    "rejected": {name: {"endpoint": {}} for name in rejected},
+                                }
+                            ]
+                        },
+                    }
+                }
+            }
+        ]
+    }
+
+
+def test_active_model_is_accepted_using_the_portal_key(llm_settings):
+    seen = {}
+
+    def handler(request):
+        seen["auth"] = request.headers["authorization"]
+        return httpx.Response(200, json=_config_with_models(active=["good"]))
+
+    _check_model("good", handler)
+    assert seen["auth"] == "Bearer portal-key"
+
+
+@pytest.mark.parametrize("model", ["rejected-model", "unknown", "http://elsewhere/"])
+def test_model_that_is_not_active_is_refused(llm_settings, model):
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(200, json=_config_with_models(active=["good"], rejected=["rejected-model"]))
+
+    with pytest.raises(ai_gateways.ModelTestRefused) as refused:
+        _check_model(model, handler)
+    assert refused.value.status_code == 404
+    assert calls == ["http://gateway:8081/config_dump"]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [httpx.Response(401), httpx.Response(500), httpx.Response(200, text="not json")],
+)
+def test_unreadable_config_refuses_the_test(llm_settings, response):
+    with pytest.raises(ai_gateways.ModelTestRefused) as refused:
+        _check_model("good", lambda request: response)
+    assert refused.value.status_code == 502
+
+
+def test_model_test_needs_its_urls_configured(monkeypatch):
+    monkeypatch.setattr(
+        ai_gateways,
+        "get_settings",
+        lambda: type("Settings", (), {"AGENTGATEWAY_CONFIG_URL": "http://gateway", "AGENTGATEWAY_LLM_URL": ""}),
+    )
+    with pytest.raises(ai_gateways.ModelTestRefused) as refused:
+        _check_model("good", lambda request: httpx.Response(200))
+    assert refused.value.status_code == 503

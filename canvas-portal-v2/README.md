@@ -24,10 +24,13 @@ A web management portal for an ODA Canvas. It is the successor to the Spring Boo
 
 `/gateways` shows the active configuration of [agentgateway](../charts/agentgateway/README.md) under Models, Tools & Resources, Agents and Traffic Management. The backend reads it from `/config_dump` and returns only whitelisted fields from `GET /api/ai-gateways`. Any logged-in user can see this page, including upstream hostnames.
 
+Each active model has a **Test** button. It opens a dialog, sends `PING` to the model through the gateway with streaming on, and shows the reply as it arrives. The backend fixes the prompt and limits the reply to 256 tokens, and it only accepts models that are active on the gateway. Any logged-in user can run a test, and each test uses a request from the gateway's LLM rate limit.
+
 | Chart value | Environment variable | Purpose |
 |---|---|---|
 | `backend.aiGateways.configUrl` | `AGENTGATEWAY_CONFIG_URL` | agentgateway's `/config_dump` URL on port 8081 |
 | `backend.aiGateways.mcpUrl` | `AGENTGATEWAY_MCP_URL` | The gateway's `/mcp` URL, for listing live tools and resources |
+| `backend.aiGateways.llmUrl` | `AGENTGATEWAY_LLM_URL` | The gateway's `/v1/chat/completions` URL, for the **Test** button on active models |
 | `backend.secretEnv.AGENTGATEWAY_API_KEY` | `AGENTGATEWAY_API_KEY` | The `key` value from the `agentgateway-portal-key` secret |
 
 Run the backend tests:

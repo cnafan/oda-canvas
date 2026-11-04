@@ -80,6 +80,8 @@ backend:
     configUrl: ""
     # For example http://agentgateway.canvas.svc.cluster.local/mcp
     mcpUrl: ""
+    # For example http://agentgateway.canvas.svc.cluster.local/v1/chat/completions
+    llmUrl: ""
   auth:
     cookieSecure: false
     cookieSameSite: strict

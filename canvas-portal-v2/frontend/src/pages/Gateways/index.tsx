@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Empty, Space, Spin, Table, Tag } from 'antd'
+import { Alert, Button, Empty, Space, Spin, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { ApiOutlined } from '@ant-design/icons'
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/api/aiGateways'
 import SectionedPage, { PageSection } from '@/components/SectionedPage'
 import { colors } from '@/theme'
+import ModelTestModal from './ModelTestModal'
 
 const renderMatches = (matches: string[]) => (
   <Space size={[4, 4]} wrap>
@@ -24,7 +25,7 @@ const renderMatches = (matches: string[]) => (
   </Space>
 )
 
-const modelColumns: ColumnsType<AiGatewayModel> = [
+const modelColumns = (onTest: (model: string) => void): ColumnsType<AiGatewayModel> => [
   { title: 'Model', dataIndex: 'name' },
   { title: 'Provider', dataIndex: 'provider' },
   { title: 'Upstream', dataIndex: 'upstream' },
@@ -34,6 +35,20 @@ const modelColumns: ColumnsType<AiGatewayModel> = [
     dataIndex: 'status',
     render: (status: AiGatewayModel['status']) => (
       <Tag color={status === 'active' ? 'green' : 'red'}>{status}</Tag>
+    ),
+  },
+  {
+    title: 'Test',
+    key: 'test',
+    render: (_, model) => (
+      <Button
+        size="small"
+        disabled={model.status !== 'active'}
+        aria-label={`Test ${model.name}`}
+        onClick={() => onTest(model.name)}
+      >
+        Test
+      </Button>
     ),
   },
 ]
@@ -128,7 +143,7 @@ function LiveDiscovery({ data }: { data: AiGatewaysSummary }) {
   )
 }
 
-function buildSections(data: AiGatewaysSummary | undefined): PageSection[] {
+function buildSections(data: AiGatewaysSummary | undefined, onTestModel: (model: string) => void): PageSection[] {
   const ok = data?.state === 'ok'
   return [
     {
@@ -139,7 +154,7 @@ function buildSections(data: AiGatewaysSummary | undefined): PageSection[] {
       content: ok ? (
         <ConfigTable
           rows={data.models ?? []}
-          columns={modelColumns}
+          columns={modelColumns(onTestModel)}
           rowKey={(model) => `${model.name}/${model.upstream}`}
           emptyText="No models are configured"
         />
@@ -231,6 +246,7 @@ function Banner({ data, isLoading, isError }: { data?: AiGatewaysSummary; isLoad
 }
 
 export default function GatewaysPage() {
+  const [testedModel, setTestedModel] = useState<string | null>(null)
   const { data, isLoading, isError } = useQuery({
     queryKey: ['ai-gateways'],
     queryFn: fetchAiGateways,
@@ -239,13 +255,16 @@ export default function GatewaysPage() {
   })
 
   return (
-    <SectionedPage
-      title="AI Gateways"
-      description={data?.version ? `Active configuration of agentgateway ${data.version}` : 'Active configuration of agentgateway'}
-      icon={<ApiOutlined />}
-      hideWipBadge
-      banner={<Banner data={data} isLoading={isLoading} isError={isError} />}
-      sections={buildSections(data)}
-    />
+    <>
+      <SectionedPage
+        title="AI Gateways"
+        description={data?.version ? `Active configuration of agentgateway ${data.version}` : 'Active configuration of agentgateway'}
+        icon={<ApiOutlined />}
+        hideWipBadge
+        banner={<Banner data={data} isLoading={isLoading} isError={isError} />}
+        sections={buildSections(data, setTestedModel)}
+      />
+      {testedModel && <ModelTestModal model={testedModel} onClose={() => setTestedModel(null)} />}
+    </>
   )
 }

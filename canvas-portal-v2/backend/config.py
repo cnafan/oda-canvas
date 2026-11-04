@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     REGISTRY_CENTER_URL: str = ""
     REGISTRY_CENTER_TOKEN: str = ""
 
+    # External registries added from the portal: metadata on the PVC, credentials in one Secret.
+    EXTERNAL_REGISTRY_CATALOG_PATH: str = "/app/data/external-registries.json"
+    REGISTRY_CREDENTIALS_SECRET: str = ""
+    REGISTRY_CREDENTIALS_NAMESPACE: str = ""
+
     @property
     def allowed_chart_sources(self) -> list[str]:
         import json

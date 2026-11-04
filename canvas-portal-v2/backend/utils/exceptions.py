@@ -1,5 +1,6 @@
 import logging
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from kubernetes.client.exceptions import ApiException
 
@@ -28,6 +29,12 @@ def register_exception_handlers(app: FastAPI):
     @app.exception_handler(CanvasPortalError)
     async def canvas_portal_error_handler(request: Request, exc: CanvasPortalError):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(request: Request, exc: RequestValidationError):
+        # FastAPI's default response echoes the submitted input, which can hold credentials.
+        errors = [{key: error.get(key) for key in ("type", "loc", "msg")} for error in exc.errors()]
+        return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": errors})
 
     @app.exception_handler(ApiException)
     async def k8s_api_exception_handler(request: Request, exc: ApiException):

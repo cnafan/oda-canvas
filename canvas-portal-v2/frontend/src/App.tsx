@@ -46,6 +46,7 @@ const router = createBrowserRouter([
       { path: 'tmf-ai-agents', element: <TMFAIAgentsPage /> },
       { path: 'registries', element: <RegistriesPage /> },
       { path: 'registries/agents/:organization/:name', element: <RegistriesPage /> },
+      { path: 'registries/agents/:registryId/:organization/:name', element: <RegistriesPage /> },
       { path: 'gateways', element: <GatewaysPage /> },
       { path: 'high-value-scenarios', element: <HighValueScenariosPage /> },
 

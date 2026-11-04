@@ -1,15 +1,15 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Button, Drawer, Grid, Input, Select, Tooltip } from 'antd'
+import { Alert, Button, Drawer, Grid, Input, Select, Tooltip } from 'antd'
 import { CloseOutlined, ReloadOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
-import { fetchAgents, registryErrorMessage, type AgentListItem } from '@/api/registries'
+import { useQueryClient } from '@tanstack/react-query'
+import { agentPagePath, refreshAgents, registryErrorMessage, useAgents, type AgentListItem } from '@/api/registries'
 import { HexBadge, type DomainPaint } from '@/components/ComponentTopology'
 import { colors } from '@/theme'
 import AgentDetailBody, { AgentStatusPill, isActiveAgent } from './AgentDetailBody'
 
-const ACTIVE_PAINT: DomainPaint = { hexFill: '#16A34A', hexBorder: '#166534', badgeBg: '#DCFCE7', badgeText: '#166534' }
-const IDLE_PAINT: DomainPaint = { hexFill: '#6B7280', hexBorder: '#4B5563', badgeBg: '#F3F4F6', badgeText: '#374151' }
+export const ACTIVE_PAINT: DomainPaint = { hexFill: '#16A34A', hexBorder: '#166534', badgeBg: '#DCFCE7', badgeText: '#166534' }
+export const IDLE_PAINT: DomainPaint = { hexFill: '#6B7280', hexBorder: '#4B5563', badgeBg: '#F3F4F6', badgeText: '#374151' }
 
 const ACTIVE_BG = 'linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%)'
 const ACTIVE_BORDER = '#86EFAC'
@@ -18,11 +18,53 @@ const HOVER_SHADOW = '0 4px 12px rgba(15,23,42,0.08)'
 
 const organizationOf = (agent: AgentListItem) => agent.provider?.organization ?? ''
 
-function AgentTile({ agent, onSelect }: { agent: AgentListItem; onSelect: () => void }) {
+/** The look and lift-on-hover shared by agent and skill tiles. */
+export function tileProps(active: boolean) {
+  const restingBorder = active ? ACTIVE_BORDER : colors.border
+  const style: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: 8,
+    border: `1px solid ${restingBorder}`,
+    background: active ? ACTIVE_BG : '#FFFFFF',
+    boxShadow: BASE_SHADOW,
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease, border-color 0.15s ease',
+    fontFamily: 'inherit',
+  }
+  return {
+    style,
+    onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
+      const n = e.currentTarget
+      n.style.transform = 'translateY(-2px)'
+      n.style.boxShadow = HOVER_SHADOW
+      n.style.borderColor = colors.primary
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
+      const n = e.currentTarget
+      n.style.transform = 'translateY(0)'
+      n.style.boxShadow = BASE_SHADOW
+      n.style.borderColor = restingBorder
+    },
+  }
+}
+
+function AgentTile({
+  agent,
+  showRegistry,
+  onSelect,
+}: {
+  agent: AgentListItem
+  showRegistry: boolean
+  onSelect: () => void
+}) {
   const active = isActiveAgent(agent.publishStatus)
   const organization = organizationOf(agent)
   const skillCount = agent.skills?.length ?? 0
-  const restingBorder = active ? ACTIVE_BORDER : colors.border
 
   const tooltip = (
     <div style={{ minWidth: 220 }}>
@@ -56,33 +98,7 @@ function AgentTile({ agent, onSelect }: { agent: AgentListItem; onSelect: () => 
         type="button"
         aria-label={`Open ${agent.name}`}
         onClick={onSelect}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          width: '100%',
-          padding: '12px 14px',
-          borderRadius: 8,
-          border: `1px solid ${restingBorder}`,
-          background: active ? ACTIVE_BG : '#FFFFFF',
-          boxShadow: BASE_SHADOW,
-          cursor: 'pointer',
-          textAlign: 'left',
-          transition: 'transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease, border-color 0.15s ease',
-          fontFamily: 'inherit',
-        }}
-        onMouseEnter={(e) => {
-          const n = e.currentTarget
-          n.style.transform = 'translateY(-2px)'
-          n.style.boxShadow = HOVER_SHADOW
-          n.style.borderColor = colors.primary
-        }}
-        onMouseLeave={(e) => {
-          const n = e.currentTarget
-          n.style.transform = 'translateY(0)'
-          n.style.boxShadow = BASE_SHADOW
-          n.style.borderColor = restingBorder
-        }}
+        {...tileProps(active)}
       >
         <HexBadge paint={active ? ACTIVE_PAINT : IDLE_PAINT} label="AGENT" />
 
@@ -121,6 +137,11 @@ function AgentTile({ agent, onSelect }: { agent: AgentListItem; onSelect: () => 
               </span>
             </div>
           )}
+          {showRegistry && agent.registry && (
+            <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4, overflowWrap: 'anywhere' }}>
+              {agent.registry.name}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -132,7 +153,7 @@ function AgentTile({ agent, onSelect }: { agent: AgentListItem; onSelect: () => 
   )
 }
 
-function Notice({ tone = 'muted', children }: { tone?: 'muted' | 'error'; children: React.ReactNode }) {
+export function Notice({ tone = 'muted', children }: { tone?: 'muted' | 'error'; children: React.ReactNode }) {
   const error = tone === 'error'
   return (
     <div
@@ -153,25 +174,32 @@ function Notice({ tone = 'muted', children }: { tone?: 'muted' | 'error'; childr
 
 export default function AgentRegistry() {
   const navigate = useNavigate()
-  const { organization: paramOrg, name: paramName } = useParams<{ organization?: string; name?: string }>()
+  const queryClient = useQueryClient()
+  const {
+    registryId: paramRegistry,
+    organization: paramOrg,
+    name: paramName,
+  } = useParams<{ registryId?: string; organization?: string; name?: string }>()
   const screens = Grid.useBreakpoint()
-  const selected = paramOrg && paramName ? { organization: paramOrg, name: paramName } : null
+  const selected = paramOrg && paramName ? { registryId: paramRegistry, organization: paramOrg, name: paramName } : null
 
   const [search, setSearch] = useState('')
   const [orgFilter, setOrgFilter] = useState('all')
+  const [registryFilter, setRegistryFilter] = useState('all')
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['registry-agents'],
-    queryFn: fetchAgents,
-  })
+  const { data, isLoading, isError, error, isFetching } = useAgents()
 
   const agents = data?.agents ?? []
+  const registries = data?.registries ?? []
+  const failedRegistries = registries.filter((registry) => registry.status !== 'ok')
+  const showRegistries = registries.length > 1
   const organizations = Array.from(new Set(agents.map(organizationOf).filter(Boolean))).sort()
   const activeCount = agents.filter((agent) => isActiveAgent(agent.publishStatus)).length
 
   const term = search.trim().toLowerCase()
   const filtered = agents
     .filter((agent) => orgFilter === 'all' || organizationOf(agent) === orgFilter)
+    .filter((agent) => registryFilter === 'all' || agent.registry?.id === registryFilter)
     .filter(
       (agent) =>
         !term ||
@@ -205,6 +233,17 @@ export default function AgentRegistry() {
             ...organizations.map((organization) => ({ value: organization, label: organization })),
           ]}
         />
+        {showRegistries && (
+          <Select
+            value={registryFilter}
+            onChange={setRegistryFilter}
+            style={{ width: 220 }}
+            options={[
+              { value: 'all', label: 'All Registries' },
+              ...registries.map((registry) => ({ value: registry.id, label: registry.name })),
+            ]}
+          />
+        )}
         <div style={{ flex: 1 }} />
         {data && (
           <span style={{ fontSize: 11, color: colors.textMuted, fontWeight: 600 }}>
@@ -213,7 +252,7 @@ export default function AgentRegistry() {
         )}
         <Button
           icon={<ReloadOutlined />}
-          onClick={() => refetch()}
+          onClick={() => refreshAgents(queryClient)}
           loading={isFetching}
           style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
         >
@@ -225,11 +264,30 @@ export default function AgentRegistry() {
 
       {isLoading && <Notice>Loading agents…</Notice>}
 
+      {(data?.storeError || failedRegistries.length > 0) && (
+        <Alert
+          type="warning"
+          showIcon
+          message="Some registries could not be read"
+          description={
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {data?.storeError && <li>External registries: {data.storeError}</li>}
+              {failedRegistries.map((registry) => (
+                <li key={registry.id}>
+                  {registry.name}: {registry.message ?? 'Unavailable'}
+                </li>
+              ))}
+            </ul>
+          }
+          style={{ marginBottom: 12 }}
+        />
+      )}
+
       {!isLoading && !isError && agents.length === 0 && (
         <Notice>
           {data?.fullAccess
-            ? 'No agents are registered in the Registry Center.'
-            : 'No published agents in the Registry Center.'}
+            ? 'No agents are registered in the available registries.'
+            : 'No published agents in the available registries.'}
         </Notice>
       )}
 
@@ -241,13 +299,10 @@ export default function AgentRegistry() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
           {filtered.map((agent) => (
             <AgentTile
-              key={`${organizationOf(agent)}/${agent.name}`}
+              key={`${agent.registry?.id}/${organizationOf(agent)}/${agent.name}`}
               agent={agent}
-              onSelect={() =>
-                navigate(
-                  `/registries/agents/${encodeURIComponent(organizationOf(agent))}/${encodeURIComponent(agent.name)}`
-                )
-              }
+              showRegistry={showRegistries}
+              onSelect={() => navigate(agentPagePath(agent))}
             />
           ))}
         </div>
@@ -291,7 +346,13 @@ export default function AgentRegistry() {
           </div>
         }
       >
-        {selected && <AgentDetailBody organization={selected.organization} name={selected.name} />}
+        {selected && (
+          <AgentDetailBody
+            organization={selected.organization}
+            name={selected.name}
+            registryId={selected.registryId}
+          />
+        )}
       </Drawer>
     </div>
   )

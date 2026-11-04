@@ -208,7 +208,7 @@ export default function AgentRegistry() {
         <div style={{ flex: 1 }} />
         {data && (
           <span style={{ fontSize: 11, color: colors.textMuted, fontWeight: 600 }}>
-            {activeCount}/{agents.length} active
+            {data.fullAccess ? `${activeCount}/${agents.length} active` : 'Showing published agents only'}
           </span>
         )}
         <Button
@@ -225,7 +225,13 @@ export default function AgentRegistry() {
 
       {isLoading && <Notice>Loading agents…</Notice>}
 
-      {!isLoading && !isError && agents.length === 0 && <Notice>No agents are registered in the Registry Center.</Notice>}
+      {!isLoading && !isError && agents.length === 0 && (
+        <Notice>
+          {data?.fullAccess
+            ? 'No agents are registered in the Registry Center.'
+            : 'No published agents in the Registry Center.'}
+        </Notice>
+      )}
 
       {!isLoading && !isError && agents.length > 0 && filtered.length === 0 && (
         <Notice>No agents match the current filters.</Notice>

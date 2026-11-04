@@ -58,6 +58,8 @@ export interface AgentList {
   agents: AgentListItem[]
   statusCounts: Record<string, number>
   heartbeatEnabled: boolean
+  /** False for non-admins, who only receive published agents. */
+  fullAccess: boolean
 }
 
 export interface ReviewTransition {
@@ -75,6 +77,7 @@ export interface AgentDetail {
   heartbeatEnabled: boolean
   layer?: string | null
   review?: { status?: string; history?: ReviewTransition[] } | null
+  fullAccess: boolean
 }
 
 export async function fetchAgents(): Promise<AgentList> {

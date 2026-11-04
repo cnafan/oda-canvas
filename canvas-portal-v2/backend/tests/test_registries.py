@@ -6,7 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from auth.middleware import get_current_user
+from auth.middleware import get_current_user, is_admin
+from auth.models import AuthUser
 from config import get_settings
 from routers import registries
 from utils.exceptions import register_exception_handlers
@@ -23,10 +24,17 @@ HEALTH = (
 )
 
 
+ADMIN = AuthUser(username="admin", email="", groups=["/canvas-admin"])
+VIEWER = AuthUser(username="viewer", email="", groups=["/viewers"])
+
 app = FastAPI()
 register_exception_handlers(app)
 app.include_router(registries.router)
 client = TestClient(app, raise_server_exceptions=False)
+
+
+def act_as(user):
+    app.dependency_overrides[get_current_user] = lambda: user
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +42,7 @@ def configured(monkeypatch):
     get_settings.cache_clear()
     monkeypatch.setenv("REGISTRY_CENTER_URL", "http://rc:5000/")
     monkeypatch.setenv("REGISTRY_CENTER_TOKEN", TOKEN)
-    app.dependency_overrides[get_current_user] = lambda: object()
+    act_as(ADMIN)
     yield
     app.dependency_overrides.clear()
     get_settings.cache_clear()
@@ -160,6 +168,87 @@ def test_unknown_agent_is_404_without_per_agent_upstream_calls(upstream):
 
     assert response.status_code == 404
     assert not [call for call in calls if "with-layer" in call["url"] or "review-status" in call["url"]]
+
+
+def test_card_named_with_dot_segment_never_reaches_an_upstream_path(upstream):
+    dotted = {"name": "..", "provider": {"organization": "org"}, "publishStatus": "published"}
+    calls = upstream({"/agent-cards/manage": (200, {"agentCards": [dotted]})})
+
+    response = client.get("/api/registries/agents/org/%2e%2e")
+
+    assert response.status_code == 404
+    assert calls == []
+
+
+def test_non_admin_list_has_only_published_agents_and_no_health(upstream):
+    calls = upstream()
+    act_as(VIEWER)
+
+    body = client.get("/api/registries/agents").json()
+
+    assert [agent["name"] for agent in body["agents"]] == ["B"]
+    assert body["agents"][0]["health"] is None
+    assert body["statusCounts"] == {"published": 1}
+    assert body["heartbeatEnabled"] is False
+    assert body["fullAccess"] is False
+    assert not [call for call in calls if "agents/health" in call["url"]]
+
+
+def test_non_admin_list_withholds_cards_without_a_status(upstream):
+    upstream({"/agent-cards/manage": (200, {"agentCards": [{"name": "C", "provider": {"organization": "org"}}]})})
+    act_as(VIEWER)
+
+    assert client.get("/api/registries/agents").json()["agents"] == []
+
+
+def test_non_admin_cannot_tell_an_unpublished_agent_from_a_missing_one(upstream):
+    calls = upstream()
+    act_as(VIEWER)
+
+    unpublished = client.get("/api/registries/agents/org/A%20b")
+    missing = client.get("/api/registries/agents/org/Nope")
+
+    assert unpublished.status_code == missing.status_code == 404
+    assert "Nope" in missing.json()["detail"] and "A b" in unpublished.json()["detail"]
+    assert not [call for call in calls if "with-layer" in call["url"] or "review-status" in call["url"]]
+
+
+def test_non_admin_detail_of_published_agent_has_no_review_or_health(upstream):
+    calls = upstream({"/agent-cards-with-layer/org/B": (200, {"layer": "service"})})
+    act_as(VIEWER)
+
+    body = client.get("/api/registries/agents/org/B").json()
+
+    assert body["layer"] == "service"
+    assert body["review"] is None
+    assert body["health"] is None
+    assert body["fullAccess"] is False
+    assert not [call for call in calls if "review-status" in call["url"] or "agents/health" in call["url"]]
+
+
+def test_admin_responses_report_full_access(upstream):
+    upstream()
+
+    assert client.get("/api/registries/agents").json()["fullAccess"] is True
+    assert client.get("/api/registries/agents/org/A%20b").json()["fullAccess"] is True
+
+
+@pytest.mark.parametrize(
+    "admin_groups, allow_all, expected",
+    [
+        ('["canvas-admin"]', "false", False),
+        ('["viewers"]', "false", True),
+        ('[]', "false", False),
+        ('[]', "true", True),
+        ('["canvas-admin"]', "true", False),
+    ],
+)
+def test_is_admin_follows_the_require_admin_rule(monkeypatch, admin_groups, allow_all, expected):
+    monkeypatch.setenv("AUTHZ_ADMIN_GROUPS", admin_groups)
+    monkeypatch.setenv("AUTHZ_ALLOW_ALL_AUTHENTICATED", allow_all)
+    get_settings.cache_clear()
+
+    assert is_admin(VIEWER) is expected
 
 
 def test_routes_require_authentication():

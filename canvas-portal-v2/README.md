@@ -159,6 +159,8 @@ The Agents section of the Registries page reads from an OpenAN Registry Center t
 
 An agent counts as active when its review status is `published`.
 
+What users see depends on `backend.auth.adminGroups`. Admins see every agent in any review status, plus health data and review history. Other logged-in users see published agents only, without health data or review history, which matches what the registry's own discovery routes expose. The backend enforces this.
+
 ## Backend tests
 
 From `backend/`:

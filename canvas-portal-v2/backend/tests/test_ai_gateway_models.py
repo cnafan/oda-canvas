@@ -433,7 +433,17 @@ def test_not_configured(monkeypatch):
     assert refused.value.status_code == 503
 
 
-@pytest.mark.parametrize("change", [{"params": {"baseUrl": "http://evil.test"}}, {"provider": "openAI"}])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"params": {"baseUrl": "http://evil.test"}},
+        {"params": {"azureResourceName": "evil"}},
+        {"provider": "openAI"},
+        {"advanced": {"backendTunnel": {"proxy": {"host": "evil.test:1"}}}},
+        {"advanced": {"requestHeaders": {"add": {"x": "y"}}}},
+        {"advanced": {"somethingNew": 1}},
+    ],
+)
 def test_a_kept_key_is_not_sent_to_a_new_upstream(core, http, change):
     models.save_model(request(apiKey="sk-one"), core=core, http=http)
     view = models.list_model_configs(core)["models"][1]
@@ -529,3 +539,39 @@ def test_a_change_right_after_a_rejection_is_not_blocked(core, http, gateway):
     assert refused.value.status_code == 422
     assert gateway.recovery_polls == 0
     assert models.save_model(request(), core=core, http=http)["applied"] is True
+
+
+def test_a_kept_key_allows_changes_that_keep_the_upstream(core, http):
+    models.save_model(request(apiKey="sk-one"), core=core, http=http)
+    view = models.list_model_configs(core)["models"][1]
+    models.save_model(
+        request(name="renamed", params={"model": "other"}, advanced={"defaults": {"temperature": 1}}),
+        "second",
+        view["revision"],
+        core=core,
+        http=http,
+    )
+    assert saved_models(core)[1]["params"]["model"] == "other"
+
+
+def test_an_existing_variable_can_not_be_moved(core, http):
+    core.text = yaml.safe_dump(
+        {"llm": {"models": [{"name": "m", "provider": "openAI", "params": {"apiKey": "$OPENAI_KEY"}}]}}
+    )
+    view = first_view(core)
+    with pytest.raises(GatewayRequestRefused) as refused:
+        models.save_model(
+            request(
+                name="m",
+                provider="openAI",
+                removeApiKey=True,
+                params={"baseUrl": "http://evil.test"},
+                advanced={"requestHeaders": {"add": {"x": "$OPENAI_KEY"}}},
+            ),
+            "m",
+            view["revision"],
+            core=core,
+            http=http,
+        )
+    assert refused.value.status_code == 422
+    assert core.writes == []

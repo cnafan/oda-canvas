@@ -55,6 +55,23 @@ NUDGED_DEADLINE_SECONDS = 20.0
 UNNUDGED_DEADLINE_SECONDS = 100.0
 MISSING_KEY_RETRY_SECONDS = 5.0
 _GENERATED_KEY_NAME = re.compile(r"[0-9a-f]{16}")
+# Settings that shape a request or who may make it, but not where it goes or how it's authenticated.
+_FIELDS_THAT_KEEP_THE_UPSTREAM = {
+    "id",
+    "name",
+    "visibility",
+    "passthrough",
+    "authorization",
+    "defaults",
+    "overrides",
+    "transformation",
+    "finalTransformation",
+    "responseHeaders",
+    "health",
+    "guardrails",
+    "promptCaching",
+    "matches",
+}
 _change_lock = threading.Lock()
 
 
@@ -290,35 +307,46 @@ def _await_recovery(http: httpx.Client, deadline_seconds: float) -> None:
         time.sleep(POLL_SECONDS)
 
 
-def _strings_with_placeholder(value: Any) -> set[str]:
+def _placeholders(value: Any, path: tuple[Any, ...] = ()) -> set[tuple[Any, ...]]:
+    """Each string with a $, with where it is, because moving one can send its value elsewhere."""
     if isinstance(value, str):
-        return {value} if "$" in value else set()
+        return {(*path, value)} if "$" in value else set()
     if isinstance(value, dict):
-        return {found for pair in value.items() for found in _strings_with_placeholder(list(pair))}
+        found: set[tuple[Any, ...]] = set()
+        for key, item in value.items():
+            found |= _placeholders(str(key), (*path, "key")) | _placeholders(item, (*path, str(key)))
+        return found
     if isinstance(value, list):
-        return {found for item in value for found in _strings_with_placeholder(item)}
+        return {found for index, item in enumerate(value) for found in _placeholders(item, (*path, index))}
     return set()
-
-
-def _refuse_keeping_key_for_new_upstream(entry: dict[str, Any], existing: dict[str, Any] | None) -> None:
-    # Otherwise, changing the upstream would send a key the admin can't read to any host.
-    old_params = _as_dict(_as_dict(existing).get("params"))
-    if old_params.get("apiKey") is None or not _as_dict(entry.get("params")).get("apiKey"):
-        return  # No key was kept.
-    if entry["params"]["apiKey"] != old_params["apiKey"]:
-        return
-    if entry["provider"] != _as_dict(existing).get("provider") or entry["params"].get("baseUrl") != old_params.get("baseUrl"):
-        raise GatewayRequestRefused(
-            422, "The provider or base URL changed, so enter the API key again or remove it."
-        )
 
 
 def _refuse_new_placeholders(entry: dict[str, Any], existing: dict[str, Any] | None) -> None:
     # The gateway expands environment variables across its whole config file. A new one could
     # send the gateway's own secrets upstream, and an unknown one stops the file from loading.
-    if _strings_with_placeholder(entry) - _strings_with_placeholder(existing):
+    if _placeholders(entry) - _placeholders(existing):
         raise GatewayRequestRefused(
             422, "'$' can't be used here, because the gateway treats it as an environment variable."
+        )
+
+
+def _upstream_settings(entry: dict[str, Any] | None) -> dict[str, Any]:
+    """Everything that could change where a request goes, including settings added later."""
+    settings = {key: value for key, value in _as_dict(entry).items() if key not in _FIELDS_THAT_KEEP_THE_UPSTREAM}
+    settings["params"] = {
+        key: value for key, value in _as_dict(settings.get("params")).items() if key not in ("model", "tokenize")
+    }
+    return settings
+
+
+def _refuse_keeping_key_for_new_upstream(entry: dict[str, Any], existing: dict[str, Any] | None) -> None:
+    # Otherwise, changing the upstream would send a key the admin can't read to any host.
+    old_key = _as_dict(_as_dict(existing).get("params")).get("apiKey")
+    if old_key is None or _as_dict(entry.get("params")).get("apiKey") != old_key:
+        return
+    if _upstream_settings(entry) != _upstream_settings(existing):
+        raise GatewayRequestRefused(
+            422, "This changes where requests go, so enter the API key again or remove it."
         )
 
 

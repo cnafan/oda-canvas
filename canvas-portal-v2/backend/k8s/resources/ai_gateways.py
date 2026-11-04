@@ -38,8 +38,9 @@ _SECRET_IN_PROSE = re.compile(
     r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9+/=._~-]{16,}"
     r"|\bsk-[A-Za-z0-9_-]{8,}"
     r"|(?<=://)[^/\s]*(?=@)"
+    r"|(?<!\S)[^/\s:@]+:[^/\s]+(?=@)"  # user:password@host, so email addresses stay readable
 )
-_QUERY_PARAM = re.compile(r"([?&;#][\w-]*=)[^&;#\s]+")
+_QUERY_PARAM = re.compile(r"([?&;#][\w-]*=)[^?&;#\s]+")
 _SECRET_PARAM_NAME = re.compile(r"(?i)key|token|secret|password|credential|auth|sig")
 
 # Policies shown elsewhere on the page, or with nothing to show.
@@ -91,13 +92,13 @@ def _mask_params(text: str) -> str:
 
 
 def _mcp_text(value: Any) -> str:
-    """Upstream servers control this text, so limit its length before masking."""
-    return sanitize(str(value or "")[:MAX_MCP_TEXT_LENGTH])
+    """Upstream servers control this text, so limit its length. Mask first, so a cut can't hide a secret."""
+    return sanitize(str(value or ""))[:MAX_MCP_TEXT_LENGTH]
 
 
 def _mcp_description(value: Any) -> str:
-    text = str(value or "")[:MAX_MCP_TEXT_LENGTH]
-    return _mask_params(_SECRET_IN_PROSE.sub("<redacted>", text))
+    masked = _mask_params(_SECRET_IN_PROSE.sub("<redacted>", str(value or "")))
+    return masked[:MAX_MCP_TEXT_LENGTH]
 
 
 def _format_match(match: Any) -> str:

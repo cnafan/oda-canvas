@@ -12,6 +12,9 @@ import ObservabilityPage from '@/pages/Observability'
 import BDDPage from '@/pages/BDD'
 import ModelGatewayPage from '@/pages/ModelGateway'
 import TMFAIAgentsPage from '@/pages/TMFAIAgents'
+import RegistriesPage from '@/pages/Registries'
+import GatewaysPage from '@/pages/Gateways'
+import HighValueScenariosPage from '@/pages/HighValueScenarios'
 
 const router = createBrowserRouter([
   {
@@ -41,6 +44,9 @@ const router = createBrowserRouter([
       { path: 'bdd', element: <BDDPage /> },
       { path: 'model-gateway-services', element: <ModelGatewayPage /> },
       { path: 'tmf-ai-agents', element: <TMFAIAgentsPage /> },
+      { path: 'registries', element: <RegistriesPage /> },
+      { path: 'gateways', element: <GatewaysPage /> },
+      { path: 'high-value-scenarios', element: <HighValueScenariosPage /> },
 
       // Catch-all
       { path: '*', element: <Navigate to="/" replace /> },

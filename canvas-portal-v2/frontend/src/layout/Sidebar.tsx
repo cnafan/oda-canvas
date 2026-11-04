@@ -14,6 +14,8 @@ import {
   ControlOutlined,
   ExperimentOutlined,
   RobotOutlined,
+  DatabaseOutlined,
+  ThunderboltOutlined,
   RightOutlined,
   DownOutlined,
   MenuFoldOutlined,
@@ -49,6 +51,9 @@ const navItems: NavItem[] = [
   // AI
   { key: 'model-gateway', label: 'Model Gateway', icon: <RobotOutlined />, path: '/model-gateway-services', section: 'AI' },
   { key: 'tmf-ai-agents', label: 'TMF AI Agents', icon: <RobotOutlined />, path: '/tmf-ai-agents', section: 'AI' },
+  { key: 'registries', label: 'Registries', icon: <DatabaseOutlined />, path: '/registries', section: 'AI' },
+  { key: 'gateways', label: 'Gateways', icon: <ApiOutlined />, path: '/gateways', section: 'AI' },
+  { key: 'high-value-scenarios', label: 'High Value Scenarios', icon: <ThunderboltOutlined />, path: '/high-value-scenarios', section: 'AI' },
 
   // PLATFORM
   { key: 'operators', label: 'Operators', icon: <ControlOutlined />, path: '/operators', section: 'PLATFORM' },

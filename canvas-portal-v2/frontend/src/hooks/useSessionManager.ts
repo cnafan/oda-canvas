@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getTokenExpiry, refreshAccessToken, logout } from '@/lib/auth'
+import { getTokenExpiry, getTokenIssuedAt, refreshAccessToken, renewAccessToken, logout } from '@/lib/auth'
 
 // Show warning this many ms before the access token expires
 const WARN_BEFORE_MS = 2 * 60 * 1000   // 2 minutes
-// Silently refresh when this close to expiry AND user is active
+// While the user is active, renew a token this old, so that the time before an
+// idle logout stays close to the token's full lifetime whenever they stop working
+const RENEW_AFTER_MS = 5 * 60 * 1000   // 5 minutes
+// Also renew when this close to expiry, for tokens shorter than RENEW_AFTER_MS
 const SILENT_REFRESH_MS = 60 * 1000    // 60 seconds
 // How often the background check runs
 const CHECK_INTERVAL_MS = 15_000
@@ -59,10 +62,14 @@ export function useSessionManager() {
 
       const isActive = (now - lastActivityRef.current) < 60_000
 
-      if (msLeft <= SILENT_REFRESH_MS && isActive && !refreshingRef.current) {
-        // User is active — refresh silently
+      const issuedAt = getTokenIssuedAt()
+      const isOld = issuedAt !== null && now - issuedAt * 1000 >= RENEW_AFTER_MS
+
+      // An open warning stays until the user answers it: its countdown ends in a logout regardless.
+      if ((isOld || msLeft <= SILENT_REFRESH_MS) && isActive && !showWarningRef.current && !refreshingRef.current) {
+        // User is active — renew silently, retrying on the next check after a temporary failure
         refreshingRef.current = true
-        const ok = await refreshAccessToken()
+        const ok = await renewAccessToken()
         refreshingRef.current = false
         if (!ok) logout()
         return

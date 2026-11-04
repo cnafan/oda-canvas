@@ -7,6 +7,7 @@ import { buildApiUrl } from '@/config'
 
 interface JwtPayload {
   exp?: number
+  iat?: number
 }
 
 // Access token is held only in memory, for the life of the page.
@@ -48,33 +49,48 @@ export function getTokenExpiry(): number | null {
   return decodeJwtPayload(accessToken)?.exp ?? null
 }
 
+export function getTokenIssuedAt(): number | null {
+  if (!accessToken) return null
+  return decodeJwtPayload(accessToken)?.iat ?? null
+}
+
 export function isAuthenticated(): boolean {
   return !!getToken()
 }
 
-// Exchange the httpOnly refresh cookie for a fresh access token. Used on app
-// startup (to restore a session after a reload) and on 401 / near-expiry.
-export async function refreshAccessToken(): Promise<boolean> {
+type RefreshOutcome = 'refreshed' | 'session-ended' | 'unavailable'
+
+async function requestNewToken(): Promise<RefreshOutcome> {
   try {
     const res = await fetch(buildApiUrl('/auth/refresh'), {
       method: 'POST',
       credentials: 'include',
     })
-    if (!res.ok) {
-      accessToken = null
-      return false
-    }
+    if (res.status === 401) return 'session-ended'
+    if (!res.ok) return 'unavailable'
     const data = await res.json().catch(() => ({}))
-    if (typeof data.access_token === 'string') {
-      accessToken = data.access_token
-      return true
-    }
-    accessToken = null
-    return false
+    if (typeof data.access_token !== 'string') return 'unavailable'
+    accessToken = data.access_token
+    return 'refreshed'
   } catch {
-    accessToken = null
-    return false
+    return 'unavailable'
   }
+}
+
+// Exchange the httpOnly refresh cookie for a fresh access token. Used on app
+// startup (to restore a session after a reload) and on 401.
+export async function refreshAccessToken(): Promise<boolean> {
+  const refreshed = (await requestNewToken()) === 'refreshed'
+  if (!refreshed) accessToken = null
+  return refreshed
+}
+
+// Replace a token that still works. A temporary failure keeps it, so the caller
+// can retry, and only returns false once the session has really ended.
+export async function renewAccessToken(): Promise<boolean> {
+  const outcome = await requestNewToken()
+  if (outcome === 'session-ended') accessToken = null
+  return outcome !== 'session-ended'
 }
 
 export async function login(username: string, password: string): Promise<void> {

@@ -16,7 +16,7 @@ import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from concurrent.futures import TimeoutError as FutureTimeout
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Literal, Optional
 from urllib.parse import quote
@@ -123,6 +123,7 @@ class Source:
 class SourceInput(BaseModel):
     name: str = Field(max_length=64)
     url: str = Field(max_length=2048)
+    pageUrl: Optional[str] = Field(default=None, max_length=2048)
     authType: Literal["none", "token", "basic", "oauth"]
     skipTlsVerify: bool = False
     allowInsecureHttp: bool = False
@@ -456,9 +457,11 @@ def _record_failure(source: Source, kind: str) -> None:
         _failures[source.lockout_key] = (now + ttl, kind)
 
 
-def _forget_source(source: Source) -> None:
+def _forget_source(source: Source, keep_lockout: bool = False) -> None:
     with _state_lock:
-        _failures.pop(source.id, None)
+        failure = _failures.get(source.id)
+        if not (keep_lockout and failure and failure[1] in LOCKOUT_KINDS):
+            _failures.pop(source.id, None)
         _oauth_tokens.pop(source.digest, None)
         for key in [key for key in _results if key[0] == source.id]:
             del _results[key]
@@ -694,6 +697,7 @@ def _public_source(metadata: dict, credentials_set: bool) -> dict:
         "id": metadata.get("id"),
         "name": metadata.get("name"),
         "url": metadata.get("url"),
+        "pageUrl": metadata.get("pageUrl"),
         "authType": metadata.get("authType"),
         "grantType": metadata.get("grantType"),
         "tokenUrl": metadata.get("tokenUrl"),
@@ -704,12 +708,43 @@ def _public_source(metadata: dict, credentials_set: bool) -> dict:
     }
 
 
+def _page_url(value: Optional[str]) -> Optional[str]:
+    """Check a link that admins open in their browser. The backend never calls it, so only its form matters."""
+    url = _text(value)
+    if not url:
+        return None
+    try:
+        parsed = httpx.URL(url)
+    except (httpx.InvalidURL, TypeError):
+        raise CanvasPortalError("Registry page is not a valid URL", 400) from None
+    # Anything but http(s), such as javascript:, would run in the portal's context when clicked.
+    if parsed.scheme not in ("http", "https") or not parsed.host or parsed.userinfo:
+        raise CanvasPortalError("Registry page must be an http:// or https:// URL without credentials", 400)
+    return str(parsed)
+
+
+def _builtin_page_url() -> Optional[str]:
+    try:
+        return _page_url(get_settings().REGISTRY_CENTER_PAGE_URL)
+    except CanvasPortalError:
+        logger.warning("Ignoring REGISTRY_CENTER_PAGE_URL because it is not a valid page URL")
+        return None
+
+
 @router.get("/sources")
 def get_sources(user: AuthUser = Depends(get_current_user)):
     if not is_admin(user):
         return {"canManage": False, "storeError": None, "sources": []}
     builtin = (
-        [{**_builtin_ref(), "url": get_settings().REGISTRY_CENTER_URL.strip(), "authType": "token", "credentialsSet": True}]
+        [
+            {
+                **_builtin_ref(),
+                "url": get_settings().REGISTRY_CENTER_URL.strip(),
+                "pageUrl": _builtin_page_url(),
+                "authType": "token",
+                "credentialsSet": True,
+            }
+        ]
         if _builtin_configured()
         else []
     )
@@ -746,8 +781,45 @@ def _normalized_registry_url(url: str) -> str:
     return normalized[: -len(API_BASE)] if normalized.endswith(API_BASE) else normalized
 
 
-def _source_from_input(body: SourceInput, source_id: str = "") -> Source:
+def _origin(url: Optional[str]) -> Optional[tuple]:
+    try:
+        parsed = httpx.URL((url or "").strip())
+    except (httpx.InvalidURL, TypeError):
+        return None
+    return (parsed.scheme, parsed.host, parsed.port) if parsed.host else None
+
+
+def _with_saved_credentials(body: SourceInput, saved: Source) -> SourceInput:
+    """Fill in the saved credentials when an edit leaves every credential field blank.
+
+    Admins can't read saved credentials, so changing where they go must require
+    retyping them: otherwise pointing a registry at another host would reveal them.
+    """
+    if saved.credentials is None or body.authType != saved.auth_type:
+        return body
+    if any(_text(value) for value in (body.token, body.username, body.password, body.clientId, body.clientSecret, body.scope)):
+        return body
+    same_destination = _origin(body.url) == _origin(saved.url)
+    if body.authType == "oauth":
+        same_destination = (
+            same_destination
+            and _origin(body.tokenUrl) == _origin(saved.token_url)
+            and (body.grantType or "client_credentials") == saved.grant_type
+        )
+    if not same_destination:
+        return body
+    return body.model_copy(
+        update={
+            key: saved.credentials.get(key)
+            for key in ("token", "username", "password", "clientId", "clientSecret", "scope")
+        }
+    )
+
+
+def _source_from_input(body: SourceInput, source_id: str = "", saved: Optional[Source] = None) -> Source:
     """Validate a submitted form. Errors name fields only, never submitted values."""
+    if saved is not None:
+        body = _with_saved_credentials(body, saved)
     name = _text(body.name)
     if not name:
         raise CanvasPortalError("Name is required", 400)
@@ -806,23 +878,49 @@ def _source_from_input(body: SourceInput, source_id: str = "") -> Source:
     )
 
 
-@router.post("/sources", status_code=201)
-def add_source(body: SourceInput, user: AuthUser = Depends(require_admin)):
-    slug = re.sub(r"[^a-z0-9]+", "-", body.name.lower()).strip("-")[:40] or "registry"
-    source = _source_from_input(body, f"{slug}-{uuid.uuid4().hex[:8]}")
+def _source_metadata(source: Source, page_url: Optional[str]) -> dict:
     metadata = {
         "id": source.id,
         "name": source.name,
         "url": source.url,
         "authType": source.auth_type,
         "skipTlsVerify": source.skip_tls,
-        "createdAt": datetime.now(UTC).replace(microsecond=0).isoformat(),
     }
+    if page_url:
+        metadata["pageUrl"] = page_url
     if source.token_url:
         metadata.update(tokenUrl=source.token_url, grantType=source.grant_type)
+    return metadata
+
+
+@router.post("/sources", status_code=201)
+def add_source(body: SourceInput, user: AuthUser = Depends(require_admin)):
+    slug = re.sub(r"[^a-z0-9]+", "-", body.name.lower()).strip("-")[:40] or "registry"
+    source = _source_from_input(body, f"{slug}-{uuid.uuid4().hex[:8]}")
+    metadata = {
+        **_source_metadata(source, _page_url(body.pageUrl)),
+        "createdAt": datetime.now(UTC).replace(microsecond=0).isoformat(),
+    }
     registry_store.add_source(metadata, source.credentials or {})
     logger.info("User %s added external registry %s", user.username, source.id)
     return _public_source(metadata, True)
+
+
+@router.put("/sources/{source_id}")
+def update_source(source_id: str, body: SourceInput, user: AuthUser = Depends(require_admin)):
+    if source_id == BUILTIN_ID:
+        raise CanvasPortalError("The in-cluster registry is configured through the portal chart", 400)
+    saved = _find_source(source_id)
+    source = _source_from_input(body, source_id, saved)
+    page_url = _page_url(body.pageUrl)
+    credentials = None if source.credentials == saved.credentials else source.credentials or {}
+    updated = registry_store.update_source(_source_metadata(source, page_url), credentials)
+    if updated is None:
+        raise CanvasPortalError(f"Registry '{source_id}' not found", 404)
+    # Saving unchanged credentials must not lift a lockout, or edits could get around the registry's ban.
+    _forget_source(saved, keep_lockout=source.digest == saved.digest)
+    logger.info("User %s updated external registry %s", user.username, source_id)
+    return _public_source(updated, True)
 
 
 @router.delete("/sources/{source_id}", status_code=204)
@@ -939,7 +1037,10 @@ def _run_test(source: Source) -> dict:
 
 @router.post("/sources/test", dependencies=[Depends(require_admin), Depends(test_rate_limit)])
 def test_source(body: SourceInput):
-    source = _source_from_input(body)
+    return _test_unsaved(_source_from_input(body))
+
+
+def _test_unsaved(source: Source) -> dict:
     try:
         return _run_test(source)
     finally:
@@ -949,8 +1050,13 @@ def test_source(body: SourceInput):
 
 
 @router.post("/sources/{source_id}/test", dependencies=[Depends(require_admin), Depends(test_rate_limit)])
-def test_saved_source(source_id: str):
+def test_saved_source(source_id: str, body: Optional[SourceInput] = None):
+    """Test a saved registry, or with a body, the edits being made to it before they are saved."""
     source = _find_source(source_id)
+    if body is not None:
+        edited = _source_from_input(body, saved=source)
+        # With the same address and credentials, the saved registry's lockout still applies.
+        return _run_test(replace(edited, id=source.id)) if edited.digest == source.digest else _test_unsaved(edited)
     if source.credentials is None:
         return _test_result("credentials_missing", FAILURE_MESSAGES["credentials_missing"], [])
     result = _run_test(source)

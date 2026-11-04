@@ -168,6 +168,8 @@ backend:
     url: ""
     # Example:
     # url: http://openan-registry-center-registry-center.components.svc.cluster.local:5000
+    # The registry's portal page as a browser reaches it, linked from the Manage Registries card. Optional.
+    pageUrl: ""
   secretEnv:
     KEYCLOAK_ADMIN_CLIENT_SECRET: ""
     ENTRAID_CLIENT_SECRET: ""

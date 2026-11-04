@@ -13,6 +13,7 @@ import json
 import logging
 import threading
 from pathlib import Path
+from typing import Optional
 
 from config import get_settings
 from utils.exceptions import CanvasPortalError
@@ -133,6 +134,37 @@ def add_source(metadata: dict, credentials: dict) -> None:
             _prune_credentials({source.get("id") for source in sources})
             raise
         _prune_credentials({source.get("id") for source in sources} | {metadata["id"]})
+
+
+def update_source(metadata: dict, credentials: Optional[dict]) -> Optional[dict]:
+    """Replace a registry, keeping its id and creation time, and return the saved entry.
+
+    Pass credentials=None to leave the saved ones alone. New credentials are written
+    first and put back if the metadata write fails, because the other order could
+    send the old credentials to a new address. Returns None if the registry does not exist.
+    """
+    source_id = metadata["id"]
+    with _lock:
+        sources = load_sources()
+        current = next((source for source in sources if source.get("id") == source_id), None)
+        if current is None:
+            return None
+        others = [source for source in sources if source.get("id") != source_id]
+        if metadata["name"].lower() in {source.get("name", "").lower() for source in others}:
+            raise CanvasPortalError(f"A registry named '{metadata['name']}' already exists", 409)
+
+        previous = None
+        if credentials is not None:
+            previous = _read_secret_data().get(source_id)
+            _patch_secret({"stringData": {source_id: json.dumps(credentials)}})
+        updated = {**metadata, "createdAt": current.get("createdAt")}
+        try:
+            _write_sources([updated if source is current else source for source in sources])
+        except StoreUnavailable:
+            if credentials is not None:
+                _patch_secret({"data": {source_id: previous}})
+            raise
+        return updated
 
 
 def remove_source(source_id: str) -> bool:

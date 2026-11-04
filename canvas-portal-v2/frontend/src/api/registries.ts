@@ -108,6 +108,8 @@ export interface RegistrySource {
   id: string
   name: string
   url: string
+  /** The registry's own web page, for people to open. */
+  pageUrl?: string | null
   authType: AuthType
   grantType?: GrantType | null
   tokenUrl?: string | null
@@ -126,6 +128,7 @@ export interface RegistrySourceList {
 export interface RegistrySourceInput {
   name: string
   url: string
+  pageUrl?: string
   authType: AuthType
   skipTlsVerify: boolean
   allowInsecureHttp: boolean
@@ -160,7 +163,7 @@ export async function fetchAgents(refresh = false): Promise<AgentList> {
 const AGENTS_KEY = ['registry-agents']
 const SOURCES_KEY = ['registry-sources']
 
-/** The agent list, shared by the Agents, Skills and External Registries sections. */
+/** The agent list, shared by the Agents, Skills and Manage Registries sections. */
 export function useAgents() {
   return useQuery({ queryKey: AGENTS_KEY, queryFn: () => fetchAgents() })
 }
@@ -205,6 +208,12 @@ export async function addRegistrySource(input: RegistrySourceInput): Promise<Reg
   return data
 }
 
+/** Credential fields left blank keep the saved credentials, while the address and authentication stay the same. */
+export async function updateRegistrySource(id: string, input: RegistrySourceInput): Promise<RegistrySource> {
+  const { data } = await apiClient.put<RegistrySource>(`/api/registries/sources/${encodeURIComponent(id)}`, input)
+  return data
+}
+
 export async function removeRegistrySource(id: string): Promise<void> {
   await apiClient.delete(`/api/registries/sources/${encodeURIComponent(id)}`)
 }
@@ -214,8 +223,9 @@ export async function testRegistryConnection(input: RegistrySourceInput): Promis
   return data
 }
 
-export async function testSavedRegistry(id: string): Promise<ConnectionTestResult> {
-  const { data } = await apiClient.post<ConnectionTestResult>(`/api/registries/sources/${encodeURIComponent(id)}/test`)
+/** With edits, tests those values before they are saved. Without, tests the registry as saved. */
+export async function testSavedRegistry(id: string, edits?: RegistrySourceInput): Promise<ConnectionTestResult> {
+  const { data } = await apiClient.post<ConnectionTestResult>(`/api/registries/sources/${encodeURIComponent(id)}/test`, edits)
   return data
 }
 

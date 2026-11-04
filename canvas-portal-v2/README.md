@@ -156,6 +156,7 @@ The frontend gets its runtime settings (`APP_API_BASE_URL`, `APP_KEYCLOAK_*`) fr
 The Agents section of the Registries page reads from an OpenAN Registry Center through the backend. Set both values to enable it; otherwise the section reports that it is not configured.
 
 - `backend.registryCenter.url`: for example `http://openan-registry-center-registry-center.components.svc.cluster.local:5000`.
+- `backend.registryCenter.pageUrl` (optional): the registry's portal page as a browser reaches it. When set, the Manage Registries card shows an Open URL icon for the in-cluster registry.
 - `backend.secretEnv.REGISTRY_CENTER_TOKEN`: a static Bearer token for a dedicated credential with the `nms_oss` role. Lesser roles get 403 on the management, health and review routes. The role can also write, but the portal only sends GET requests and never gives the token to the browser.
 
 An agent counts as active when its review status is `published`.
@@ -164,9 +165,9 @@ What users see depends on `backend.auth.adminGroups`. Admins see every agent in 
 
 ### External registries
 
-Admins can add Registry Centers running outside the cluster from the External Registries card on the Registries page. Their agents appear in the Agents section. The Skills section lists the skills declared in the agent cards of every registry, because no registry has a separate skills API.
+Admins can add Registry Centers running outside the cluster from the Manage Registries card on the Registries page. Their agents appear in the Agents section. The Skills section lists the skills declared in the agent cards of every registry, because no registry has a separate skills API.
 
-Each registry takes a URL and one of these credentials:
+Each registry takes a URL, an optional **Registry page** and one of these credentials. When a registry page is set, its card shows an Open URL icon that opens the page in a new browser window or tab. The portal backend never calls this address.
 
 | Option | Sent as | Notes |
 | --- | --- | --- |
@@ -177,13 +178,15 @@ Each registry takes a URL and one of these credentials:
 
 To add a Registry Center behind an OpenAN Portal, use the portal's gateway path, `http://<portal-host>/api/registry-center`. The portal's own page URLs, such as `/registry`, return a web page, and the connection test suggests this path when it sees one.
 
+To change a registry, use **Edit** on its card. The in-cluster registry can't be edited here because the chart configures it. The credential fields start blank; leave them blank to keep the saved credentials. Saved credentials are kept only while the authentication type, the OAuth grant type, and the scheme, host and port of the registry URL and token URL stay the same. Otherwise they must be entered again, so that an edit can't send them to a different server. **Test Connection** follows the same rule and tests the edited values before they are saved.
+
 Things to know when operating this:
 
-- **Storage.** Names and URLs are saved in `external-registries.json` on the backend volume, so they are lost on restart if `backend.persistence.enabled` is false. Credentials are saved in the `*-backend-registry-credentials` Secret in the release namespace, and the backend can only read and patch that one Secret. Credentials are never returned to the browser; to change one, remove the registry and add it again.
+- **Storage.** Names and URLs are saved in `external-registries.json` on the backend volume, so they are lost on restart if `backend.persistence.enabled` is false. Credentials are saved in the `*-backend-registry-credentials` Secret in the release namespace, and the backend can only read and patch that one Secret. Credentials are never returned to the browser.
 - **Helm.** The chart creates that Secret with no data, and `helm upgrade` keeps the keys the backend adds. `helm upgrade --force` and `helm uninstall` delete them, after which affected registries show that their credentials are missing. Set `rbac.registryCredentials.enabled: false` to turn off saving external registries.
 - **Addresses.** The backend refuses loopback, link-local and `*.svc`/`cluster.local` addresses, and does not follow redirects. Private ranges stay allowed because external registries are often on them, so a literal in-cluster IP address can't be blocked. Only admins can add a URL.
 - **TLS.** Certificates are verified unless **Skip TLS verification** is ticked for that registry. An `http://` URL must be confirmed, since the credentials would travel unencrypted.
-- **Lockouts.** Registry Center bans a client for 5 minutes after 5 failed logins. After a rejection, the portal stops calling that registry for 5 minutes, including for connection tests. To retry sooner with new credentials, remove the registry and add it again.
+- **Lockouts.** Registry Center bans a client for 5 minutes after 5 failed logins. After a rejection, the portal stops calling that registry for 5 minutes, including for connection tests. To retry sooner, save the registry with new credentials. Saving it with the same ones doesn't lift the lockout.
 - **Freshness.** Results from external registries are cached for 30 seconds. **Refresh** skips the cache for admins only. A registry that fails or doesn't answer within about 6 seconds shows as a warning without affecting the others.
 - **Limits.** Each call to an external registry has a 5-second overall limit and a 10 MB response limit. Compressed responses are refused.
 

@@ -63,6 +63,8 @@ class FakeSecret:
         for key, value in body.get("data", {}).items():
             if value is None:
                 self.data.pop(key, None)
+            else:
+                self.data[key] = value
 
 
 @pytest.fixture(autouse=True)
@@ -289,6 +291,73 @@ def test_disallowed_urls_are_refused_on_save_and_test(secret, url):
     assert client.post("/api/registries/sources/test", json=form).status_code == 400
 
 
+def test_registry_page_is_saved_and_returned(secret):
+    page = "https://portal.example.com/registry?tab=agents#list"
+
+    created = add({**TOKEN_FORM, "pageUrl": f" {page} "})
+
+    assert created["pageUrl"] == page
+    assert client.get("/api/registries/sources").json()["sources"][0]["pageUrl"] == page
+
+
+@pytest.mark.parametrize("page", [None, "", "   "])
+def test_registry_page_is_optional(secret, page):
+    assert add({**TOKEN_FORM, "pageUrl": page})["pageUrl"] is None
+
+
+@pytest.mark.parametrize(
+    "page",
+    [
+        "javascript:alert(1)",
+        "JaVaScRiPt:alert(1)",
+        "java\tscript:alert(1)",
+        "data:text/html,x",
+        "ftp://portal.example.com",
+        "https:///registry",
+        "portal.example.com/registry",
+        "https://u:p@portal.example.com",
+    ],
+)
+def test_unsafe_registry_pages_are_refused_and_nothing_is_saved(secret, page):
+    response = client.post("/api/registries/sources", json={**TOKEN_FORM, "pageUrl": page})
+
+    assert response.status_code == 400
+    assert page not in response.text
+    assert client.get("/api/registries/sources").json()["sources"] == []
+    assert secret.data == {}
+
+
+def test_registry_page_is_never_called(secret, upstream):
+    calls = upstream()
+    page = "https://portal.example.com/registry"
+    add({**TOKEN_FORM, "pageUrl": page})
+
+    client.post(f"/api/registries/sources/{client.get('/api/registries/sources').json()['sources'][0]['id']}/test")
+    client.get("/api/registries/agents?refresh=true")
+
+    assert calls and not any("portal.example.com" in call["path"] for call in calls)
+
+
+@pytest.mark.parametrize(
+    "configured, expected",
+    [
+        ("", None),
+        ("http://10.0.0.1:8082/registry", "http://10.0.0.1:8082/registry"),
+        ("javascript:alert(1)", None),
+    ],
+)
+def test_in_cluster_registry_page_comes_from_the_chart(secret, monkeypatch, configured, expected):
+    monkeypatch.setenv("REGISTRY_CENTER_URL", "http://rc:5000")
+    monkeypatch.setenv("REGISTRY_CENTER_TOKEN", "tok")
+    monkeypatch.setenv("REGISTRY_CENTER_PAGE_URL", configured)
+    get_settings.cache_clear()
+
+    builtin = client.get("/api/registries/sources").json()["sources"][0]
+
+    assert builtin["builtin"] is True
+    assert builtin["pageUrl"] == expected
+
+
 @pytest.mark.parametrize("token", ["caf\u00e9", "two words", "smart\u201d"])
 def test_tokens_that_cannot_be_sent_in_a_header_are_refused(secret, token):
     form = {**TOKEN_FORM, "token": token}
@@ -375,6 +444,212 @@ def test_unavailable_store_does_not_break_the_in_cluster_registry(secret, monkey
 
     assert response.status_code == 200
     assert response.json()["storeError"]
+
+
+# --- Editing -----------------------------------------------------------------
+
+
+EDIT_OAUTH_FORM = {
+    "name": "Idp",
+    "url": BASE,
+    "authType": "oauth",
+    "tokenUrl": "https://iam.example.com/token",
+    "clientId": "client",
+    "clientSecret": SECRET,
+}
+
+
+def edit(source_id, form):
+    return client.put(f"/api/registries/sources/{source_id}", json=form)
+
+
+def blank_credentials(form):
+    return {key: value for key, value in form.items() if key not in ("token", "username", "password", "clientId", "clientSecret", "scope")}
+
+
+def stored(secret, source_id):
+    return json.loads(base64.b64decode(secret.data[source_id]))
+
+
+def test_edit_changes_details_and_keeps_id_creation_time_and_credentials(secret):
+    created = add()
+    patches = len(secret.patches)
+
+    response = edit(created["id"], {"name": "Renamed", "url": f"{BASE}/other", "pageUrl": "https://p.example.com", "authType": "token", "skipTlsVerify": True})
+
+    assert response.status_code == 200, response.text
+    updated = response.json()
+    assert (updated["id"], updated["createdAt"]) == (created["id"], created["createdAt"])
+    assert (updated["name"], updated["url"], updated["pageUrl"], updated["skipTlsVerify"]) == ("Renamed", f"{BASE}/other", "https://p.example.com", True)
+    assert stored(secret, created["id"]) == {"token": SECRET}
+    assert len(secret.patches) == patches, "unchanged credentials must not be rewritten"
+    assert SECRET not in response.text
+
+
+def test_edit_can_clear_the_registry_page(secret):
+    created = add({**TOKEN_FORM, "pageUrl": "https://p.example.com"})
+
+    assert edit(created["id"], {**blank_credentials(TOKEN_FORM), "pageUrl": ""}).json()["pageUrl"] is None
+
+
+def test_edit_replaces_credentials_when_they_are_entered(secret):
+    created = add()
+
+    assert edit(created["id"], {**TOKEN_FORM, "token": "new-token"}).status_code == 200
+
+    assert stored(secret, created["id"]) == {"token": "new-token"}
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"url": "https://evil.example.com"},
+        {"url": "http://registry.example.com", "allowInsecureHttp": True},
+        {"url": "https://registry.example.com:8443"},
+        {"url": "https://registry.example.com@evil.example.com"},
+        {"authType": "basic"},
+        {"authType": "oauth", "tokenUrl": "https://iam.example.com/token"},
+    ],
+)
+def test_saved_token_never_follows_a_changed_destination_on_save_or_test(secret, upstream, changes):
+    created = add()
+    calls = upstream()
+    form = {**blank_credentials(TOKEN_FORM), **changes}
+
+    assert edit(created["id"], form).status_code == 400
+    assert client.post(f"/api/registries/sources/{created['id']}/test", json=form).status_code == 400
+    assert calls == []
+    assert client.get("/api/registries/sources").json()["sources"][0]["url"] == BASE
+    assert stored(secret, created["id"]) == {"token": SECRET}
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"tokenUrl": "https://evil.example.com/token"},
+        {"url": "https://evil.example.com"},
+        {"grantType": "password"},
+    ],
+)
+def test_saved_oauth_secret_never_follows_a_changed_destination(secret, upstream, changes):
+    created = add(EDIT_OAUTH_FORM)
+    calls = upstream()
+    form = {**blank_credentials(EDIT_OAUTH_FORM), **changes}
+
+    assert edit(created["id"], form).status_code == 400
+    assert client.post(f"/api/registries/sources/{created['id']}/test", json=form).status_code == 400
+    assert calls == []
+
+
+def test_oauth_edit_with_the_same_destination_keeps_the_secret(secret):
+    created = add({**EDIT_OAUTH_FORM, "scope": "read"})
+
+    response = edit(created["id"], {**blank_credentials(EDIT_OAUTH_FORM), "name": "Renamed", "tokenUrl": "https://iam.example.com/v2/token", "grantType": "client_credentials"})
+
+    assert response.status_code == 200, response.text
+    assert stored(secret, created["id"]) == {"clientId": "client", "clientSecret": SECRET, "scope": "read"}
+
+
+def test_partly_entered_credentials_do_not_mix_with_saved_ones(secret):
+    created = add({"name": "B", "url": BASE, "authType": "basic", "username": "u", "password": SECRET})
+
+    response = edit(created["id"], {"name": "B", "url": BASE, "authType": "basic", "username": "other"})
+
+    assert response.status_code == 400
+    assert stored(secret, created["id"]) == {"username": "u", "password": SECRET}
+
+
+def test_changing_to_no_credentials_deletes_the_saved_ones(secret):
+    created = add()
+
+    assert edit(created["id"], {"name": "Partner", "url": "http://elsewhere.example.com", "authType": "none"}).status_code == 200
+
+    assert stored(secret, created["id"]) == {}
+
+
+def test_edit_can_restore_missing_credentials(secret):
+    created = add()
+    del secret.data[created["id"]]
+    form = blank_credentials(TOKEN_FORM)
+
+    assert edit(created["id"], form).status_code == 400
+    assert edit(created["id"], TOKEN_FORM).status_code == 200
+    assert stored(secret, created["id"]) == {"token": SECRET}
+
+
+def test_edit_refuses_another_registrys_name_but_allows_its_own(secret):
+    created = add()
+    add({**TOKEN_FORM, "name": "Other"})
+    form = blank_credentials(TOKEN_FORM)
+
+    assert edit(created["id"], {**form, "name": "other"}).status_code == 409
+    assert edit(created["id"], {**form, "name": "PARTNER"}).status_code == 200
+
+
+@pytest.mark.parametrize("source_id, status", [("in-cluster", 400), ("missing", 404)])
+def test_edit_refuses_the_in_cluster_and_unknown_registries(secret, source_id, status):
+    assert edit(source_id, TOKEN_FORM).status_code == status
+
+
+def test_non_admins_cannot_edit_or_test_edits(secret, upstream):
+    created = add()
+    calls = upstream()
+    act_as(VIEWER)
+
+    assert edit(created["id"], {**TOKEN_FORM, "name": "Hacked"}).status_code == 403
+    assert client.post(f"/api/registries/sources/{created['id']}/test", json=TOKEN_FORM).status_code == 403
+    assert calls == []
+
+
+def test_failed_metadata_write_during_edit_restores_the_old_credentials(secret, monkeypatch):
+    created = add()
+
+    def fail(_):
+        raise registry_store.StoreUnavailable("disk full")
+
+    monkeypatch.setattr(registry_store, "_write_sources", fail)
+
+    assert edit(created["id"], {**TOKEN_FORM, "token": "new-token"}).status_code == 503
+    assert stored(secret, created["id"]) == {"token": SECRET}
+
+
+def test_edit_with_new_credentials_lifts_a_lockout_but_the_same_ones_do_not(secret, upstream):
+    created = add()
+    calls = upstream({f"{API}/agent-cards/manage": (401, {})})
+    client.get("/api/registries/agents")
+    made = len(calls)
+
+    assert edit(created["id"], {**blank_credentials(TOKEN_FORM), "name": "Renamed"}).status_code == 200
+    client.get("/api/registries/agents?refresh=true")
+    assert len(calls) == made, "the same credentials must stay locked out"
+
+    assert edit(created["id"], {**TOKEN_FORM, "name": "Renamed", "token": "new-token"}).status_code == 200
+    client.get("/api/registries/agents?refresh=true")
+    assert len(calls) > made
+
+
+def test_testing_edits_uses_the_form_values_without_saving(secret, upstream):
+    created = add()
+    calls = upstream(base=f"{BASE}/other")
+    form = {**blank_credentials(TOKEN_FORM), "url": f"{BASE}/other"}
+
+    result = client.post(f"/api/registries/sources/{created['id']}/test", json=form).json()
+
+    assert result["ok"] is True
+    assert calls[-1]["headers"]["Authorization"] == f"Bearer {SECRET}"
+    assert client.get("/api/registries/sources").json()["sources"][0]["url"] == BASE
+
+
+def test_testing_unchanged_edits_respects_the_saved_registrys_lockout(secret, upstream):
+    created = add()
+    upstream({f"{API}/agent-cards/manage": (401, {})})
+    client.get("/api/registries/agents")
+    calls = upstream()
+
+    result = client.post(f"/api/registries/sources/{created['id']}/test", json=blank_credentials(TOKEN_FORM)).json()
+
+    assert result["classification"] == "cooldown"
+    assert calls == []
 
 
 # --- Connection test ---------------------------------------------------------

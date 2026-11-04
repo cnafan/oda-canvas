@@ -94,7 +94,7 @@ export default function ModelTestModal({ model, onClose }: { model: string; onCl
       <Space direction="vertical" size={12} style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: colors.textSecondary }}>
-            Sent <code>PING</code> to the chat completions endpoint, with streaming on.
+            Sends <code>PING</code> to the chat completions endpoint, with streaming on.
           </span>
           <div aria-live="polite">
             <Status output={output} />

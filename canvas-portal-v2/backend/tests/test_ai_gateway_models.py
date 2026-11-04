@@ -608,6 +608,8 @@ def test_other_secrets_are_not_sent_to_a_new_upstream(core, http, secret):
         {"advanced": {"tls": [{"file": "/etc/passwd"}]}},
         {"advanced": {"tls": {"cert": "/var/run/secrets/x", "key": "/var/run/secrets/y"}}},
         {"advanced": {"backendTLS": {"root": "/etc/passwd"}}},
+        # The gateway reads this list form as a file too. A plain [path] is an inline value.
+        {"advanced": {"auth": {"key": [{"file": "/var/run/secrets/x"}]}}},
         {"advanced": {"guardrails": {"request": [{"webhook": {"target": {"policies": {"backendTLS": {"key": "/k"}}}}}]}}},
         {"provider": {"custom": {"auth": {"file": "/etc/passwd"}}}},
     ],

@@ -45,6 +45,23 @@ Set both values again on every `helm upgrade`, or use `--reuse-values`.
 
 Install with Helm directly. The chart reads the existing `agentgateway-portal-key` secret to keep the key across upgrades, which needs a live cluster. Applying `helm template` output, such as Argo CD's default rendering, generates a new key on each render, and the portal's AI Gateways page then shows that it's unauthorized.
 
+## Models changed from the portal
+
+The canvas portal's AI Gateways page writes model changes directly to the `agentgateway-config` ConfigMap, and model API keys to the `agentgateway-llm-keys` Secret, which the gateway reads as files.
+
+**Helm owns the ConfigMap, and doesn't know about these changes.** After the portal changes a model, Helm 4's `helm upgrade` stops with a server-side apply conflict on `.data.config.yaml`. Don't get past this with `--force-conflicts` alone, because that puts back the chart's values and drops the models added from the portal. To keep them, pass the live models to the upgrade:
+
+```bash
+MODELS=$(kubectl -n canvas get configmap agentgateway-config -o jsonpath='{.data.config\.yaml}' \
+  | python3 -c 'import json, sys, yaml; print(json.dumps(yaml.safe_load(sys.stdin)["llm"]["models"]))')
+helm upgrade agentgateway charts/agentgateway -n canvas --reset-then-reuse-values --force-conflicts \
+  --set-json "agentgateway-standalone.config.llm.models=$MODELS"
+```
+
+Older Helm versions don't stop: they put back the chart's values without warning. Use the same command, without `--force-conflicts`.
+
+The keys stay in the Secret. Helm doesn't change it after creating it, and it stays after `helm uninstall`.
+
 ## Paths on the gateway (kind overlay)
 
 | Path | Function | Notes |

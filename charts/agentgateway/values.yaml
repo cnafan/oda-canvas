@@ -4,6 +4,11 @@
 portalKey:
   secretName: agentgateway-portal-key
 
+# Secret holding model API keys. The canvas portal manages its contents, and the gateway
+# reads them as files. This name must match agentgateway-standalone.extraVolumes.
+llmKeys:
+  secretName: agentgateway-llm-keys
+
 # Test MCP server from source/utilities/test-mcp-server. For development clusters only.
 # The image is never published: build it and load it into the cluster first.
 testMcpServer:
@@ -39,6 +44,14 @@ agentgateway-standalone:
         secretKeyRef:
           name: agentgateway-portal-key
           key: key
+  extraVolumes:
+    - name: llm-keys
+      secret:
+        secretName: agentgateway-llm-keys
+  extraVolumeMounts:
+    - name: llm-keys
+      mountPath: /llm-keys
+      readOnly: true
   # Environment overlays add llm, mcp and routes (see values-kind.yaml).
   # Don't set a `ui` key: it would attach the unredacted /api/config endpoints to the gateway.
   config:

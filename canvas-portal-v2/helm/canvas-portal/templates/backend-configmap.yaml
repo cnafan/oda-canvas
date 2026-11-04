@@ -32,6 +32,11 @@ data:
   AGENTGATEWAY_CONFIG_URL: {{ ((.Values.backend.aiGateways | default dict).configUrl | default "") | quote }}
   AGENTGATEWAY_MCP_URL: {{ ((.Values.backend.aiGateways | default dict).mcpUrl | default "") | quote }}
   AGENTGATEWAY_LLM_URL: {{ ((.Values.backend.aiGateways | default dict).llmUrl | default "") | quote }}
+  AGENTGATEWAY_CONFIG_NAMESPACE: {{ ((.Values.backend.aiGateways | default dict).configNamespace | default "") | quote }}
+  AGENTGATEWAY_CONFIG_MAP: {{ ((.Values.backend.aiGateways | default dict).configMap | default "agentgateway-config") | quote }}
+  AGENTGATEWAY_KEYS_SECRET: {{ ((.Values.backend.aiGateways | default dict).keysSecret | default "agentgateway-llm-keys") | quote }}
+  AGENTGATEWAY_KEYS_PATH: {{ ((.Values.backend.aiGateways | default dict).keysPath | default "/llm-keys") | quote }}
+  AGENTGATEWAY_POD_SELECTOR: {{ ((.Values.backend.aiGateways | default dict).podSelector | default "app.kubernetes.io/name=agentgateway-standalone") | quote }}
   OBSERVABILITY_PROVIDERS_JSON: {{ ((.Values.backend.observability).providers | default list) | toJson | quote }}
   REGISTRY_CENTER_URL: {{ ((.Values.backend.registryCenter | default dict).url | default "") | quote }}
   REGISTRY_CENTER_PAGE_URL: {{ ((.Values.backend.registryCenter | default dict).pageUrl | default "") | quote }}

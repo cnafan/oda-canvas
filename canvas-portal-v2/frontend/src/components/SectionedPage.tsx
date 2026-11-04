@@ -10,6 +10,8 @@ export interface PageSection {
   link?: { to: string; label: string }
   /** Replaces the placeholder. The link, if any, is shown underneath. */
   content?: React.ReactNode
+  /** Shown at the end of the section's title line. */
+  actions?: React.ReactNode
 }
 
 interface SectionedPageProps {
@@ -86,9 +88,10 @@ export default function SectionedPage({ title, description, icon, sections, hide
               padding: 24,
             }}
           >
-            <h3 style={{ fontSize: 14, fontWeight: 650, color: colors.textPrimary, margin: '0 0 6px' }}>
-              {section.title}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, margin: '0 0 6px' }}>
+              <h3 style={{ fontSize: 14, fontWeight: 650, color: colors.textPrimary, margin: 0 }}>{section.title}</h3>
+              {section.actions}
+            </div>
             <p style={{ fontSize: 12, color: colors.textSecondary, margin: '0 0 14px', lineHeight: 1.55 }}>
               {section.description}
             </p>

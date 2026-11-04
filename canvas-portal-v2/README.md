@@ -27,6 +27,8 @@ A web management portal for an ODA Canvas. It is the successor to the Spring Boo
 
 Each active model has a **Test** button. It opens a dialog, sends `PING` to the model through the gateway with streaming on, and shows the reply as it arrives. The backend fixes the prompt and limits the reply to 256 tokens, and it only accepts models that are active on the gateway. Any logged-in user can run a test, and each test uses a request from the gateway's LLM rate limit.
 
+Admins can also change models. The **+** icon in the Models section adds one, and each model in the gateway's `llm.models` list has **Edit** and **Remove** buttons. The dialog has the common [`llm.models[]` settings](https://github.com/agentgateway/agentgateway/blob/v1.7.0/schema/config.md) as form fields, and an **Advanced** JSON box for the rest. The backend writes the change to the gateway's ConfigMap, annotates the gateway pods so the file refreshes right away (if it has that access), and waits for the gateway to report the result. If the gateway rejects the change, the backend puts the config back and shows the error. API keys go in a Secret that the gateway reads as files, and the portal never shows them again. The gateway expands environment variables across its whole config file, so a new `$` is refused everywhere except the API key. A `helm upgrade` of the gateway needs extra steps after this, or it drops these changes: see the [chart README](../charts/agentgateway/README.md#models-changed-from-the-portal).
+
 The name of each live tool and resource opens an inspector dialog, modelled on the [MCP Inspector](https://github.com/modelcontextprotocol/inspector). The backend runs a full MCP session through the gateway for each call, and only for items the gateway lists at that moment. The **Protocol** tab shows the JSON-RPC exchanges.
 
 Only members of `backend.auth.adminGroups` can make these calls, and they see results unmasked. Other logged-in users can see the names, descriptions and tool forms, but not call or read anything, and the backend leaves schema defaults and choices out of what they receive, because those can hold real values. Pattern masking can't reliably find secrets in free text, so it isn't used as an access control here.
@@ -39,6 +41,9 @@ Only members of `backend.auth.adminGroups` can make these calls, and they see re
 | `backend.aiGateways.configUrl` | `AGENTGATEWAY_CONFIG_URL` | agentgateway's `/config_dump` URL on port 8081 |
 | `backend.aiGateways.mcpUrl` | `AGENTGATEWAY_MCP_URL` | The gateway's `/mcp` URL, for listing live tools and resources |
 | `backend.aiGateways.llmUrl` | `AGENTGATEWAY_LLM_URL` | The gateway's `/v1/chat/completions` URL, for the **Test** button on active models |
+| `backend.aiGateways.configNamespace` | `AGENTGATEWAY_CONFIG_NAMESPACE` | The gateway's namespace, for adding, editing and removing models. Empty keeps models read-only |
+| `backend.aiGateways.configMap`, `keysSecret`, `keysPath`, `podSelector` | `AGENTGATEWAY_CONFIG_MAP`, `AGENTGATEWAY_KEYS_SECRET`, `AGENTGATEWAY_KEYS_PATH`, `AGENTGATEWAY_POD_SELECTOR` | Where that config, the API key Secret and the gateway pods are. The defaults match `charts/agentgateway` |
+| `rbac.agentgatewayConfigAccess.enabled` | | Gives the backend the access it needs in `configNamespace`. Only needed if it doesn't already have it. `rbac.agentgatewayConfigAccess.nudgePods` also lets it annotate pods there, so changes apply in about a second instead of up to about 90s, but it allows patching any pod in that namespace |
 | `backend.secretEnv.AGENTGATEWAY_API_KEY` | `AGENTGATEWAY_API_KEY` | The `key` value from the `agentgateway-portal-key` secret |
 
 Run the backend tests:

@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     AGENTGATEWAY_MCP_URL: str = ""
     AGENTGATEWAY_LLM_URL: str = ""
     AGENTGATEWAY_API_KEY: str = ""
+    # Where the gateway's config lives. Empty means models can't be changed from the portal.
+    AGENTGATEWAY_CONFIG_NAMESPACE: str = ""
+    AGENTGATEWAY_CONFIG_MAP: str = "agentgateway-config"
+    AGENTGATEWAY_KEYS_SECRET: str = "agentgateway-llm-keys"
+    AGENTGATEWAY_KEYS_PATH: str = "/llm-keys"
+    AGENTGATEWAY_POD_SELECTOR: str = "app.kubernetes.io/name=agentgateway-standalone"
 
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

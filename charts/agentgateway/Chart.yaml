@@ -2,8 +2,9 @@ apiVersion: v2
 name: agentgateway
 description: AI gateway for LLM consumption, MCP connectivity, agent connectivity and traffic management, based on agentgateway in standalone mode
 type: application
+# version: 0.1.1 - add the llm-keys Secret and mount, for model API keys set from the portal
 # version: 0.1.0 - initial chart wrapping agentgateway-standalone v1.7.0
-version: 0.1.0
+version: 0.1.1
 appVersion: "v1.7.0"
 home: https://github.com/tmforum-oda/oda-canvas
 sources:

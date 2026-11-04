@@ -1,5 +1,7 @@
-# Overlay for the kind development cluster. Set the real LLM URL at install time:
+# Overlay for the kind development cluster. Set these environment-specific values at
+# install time:
 #   --set-string 'agentgateway-standalone.config.llm.models[0].params.baseUrl=http://<host>:<port>/v1'
+#   --set-string 'agentgateway-standalone.config.routes[0].backends[0].host=sample-agent.<namespace>.svc.cluster.local:8080'
 testMcpServer:
   enabled: true
 
@@ -26,7 +28,7 @@ agentgateway-standalone:
       targets:
         - name: test-mcp
           mcp:
-            host: http://agentgateway-test-mcp-server.canvas.svc.cluster.local:8000/mcp
+            host: http://agentgateway-test-mcp-server:8000/mcp
     routes:
       - name: sample-agent
         gateways: default
@@ -41,7 +43,7 @@ agentgateway-standalone:
           timeout:
             requestTimeout: 120s
         backends:
-          - host: sample-agent.components.svc.cluster.local:8080
+          - host: sample-agent.invalid:8080
       - name: traffic-demo
         gateways: default
         matches:
@@ -64,4 +66,4 @@ agentgateway-standalone:
               tokensPerFill: 20
               fillInterval: 60s
         backends:
-          - host: agentgateway-test-mcp-server.canvas.svc.cluster.local:8000
+          - host: agentgateway-test-mcp-server:8000

@@ -28,7 +28,12 @@ def client_for(handler):
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
-def mcp_reply(request, content_type="application/json"):
+def streamed(body, content_type="application/json"):
+    """A response that hasn't been read yet, as it would be from the network."""
+    return httpx.Response(200, headers={"content-type": content_type}, stream=httpx.ByteStream(body.encode()))
+
+
+def mcp_body(request, content_type="application/json"):
     method = json.loads(request.content)["method"]
     result = (
         {"tools": [{"name": "echo", "description": "Echo", "inputSchema": {"secret": "x"}}]}
@@ -38,7 +43,7 @@ def mcp_reply(request, content_type="application/json"):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "result": result})
     if content_type == "text/event-stream":
         body = f"event: message\ndata: {body}\n\n"
-    return httpx.Response(200, text=body, headers={"content-type": content_type})
+    return body
 
 
 def gateway(request, mcp_content_type="application/json"):
@@ -46,7 +51,7 @@ def gateway(request, mcp_content_type="application/json"):
         return httpx.Response(200, json=DUMP)
     if request.url.path == "/api/runtime":
         return httpx.Response(200, json={"configReload": {"synchronized": False, "lastError": "bad value: hunter2"}})
-    return mcp_reply(request, mcp_content_type)
+    return streamed(mcp_body(request, mcp_content_type), mcp_content_type)
 
 
 def test_fixture_fills_all_four_sections():
@@ -81,6 +86,7 @@ def test_traffic_keeps_rate_limit_values_and_drops_non_traffic_policies():
     rows = parse_config_dump(DUMP)["traffic"]
     demo = {row["policy"]: row["settings"] for row in rows if row["route"] == "traffic-demo"}
 
+    assert demo["urlRewrite"] == {"prefix": "/"}
     assert demo["timeout"] == {"requestTimeout": "2s"}
     assert demo["retry"] == {"attempts": 2, "backoff": "200ms", "codes": ["503 Service Unavailable"]}
     assert demo["localRateLimit"] == {
@@ -144,7 +150,7 @@ def test_sanitize_masks_secrets_but_not_token_counts():
         "accessToken": "b",
         "client_secret": "c",
         "key": "d",
-        "note": "Bearer abc.def",
+        "note": "Bearer abcdefghijklmnop.qrst",
         "url": "http://user:pw@host/",
         "other": "sk-abcdefghijkl",
         "maxTokens": 20,
@@ -169,11 +175,15 @@ def test_sanitize_masks_secrets_but_not_token_counts():
 @pytest.mark.parametrize(
     "value, expected",
     [
-        ("basic dXNlcjpwYXNz", "<redacted>"),
-        ("BEARER abc", "<redacted>"),
+        ("basic dXNlcjpwYXNzd29yZA==", "<redacted>"),
+        ("BEARER abcdefghijklmnop", "<redacted>"),
         ("user:pw@host:8000/mcp", "<redacted>@host:8000/mcp"),
+        ("http://user:p@ss@host/", "http://<redacted>@host/"),
         ("http://host/mcp?api_key=abc&x=1", "http://host/mcp?api_key=<redacted>&x=1"),
+        ("http://host/mcp?X-Auth-Sig=abc#frag", "http://host/mcp?X-Auth-Sig=<redacted>#frag"),
         ("host.example:8000/v1", "host.example:8000/v1"),
+        ("Basic calculator for sums", "Basic calculator for sums"),
+        ("Bearer tokens are accepted here", "Bearer tokens are accepted here"),
     ],
 )
 def test_sanitize_masks_secret_values(value, expected):
@@ -204,6 +214,42 @@ def test_discovery_reads_sse_responses():
     assert summary["discovered"]["tools"][0]["name"] == "echo"
 
 
+def test_discovery_skips_empty_sse_events():
+    def handler(request):
+        if request.url.path != "/mcp":
+            return gateway(request)
+        return streamed(f"data:\n\n{mcp_body(request, 'text/event-stream')}", "text/event-stream")
+
+    summary = get_ai_gateways_summary(client_for(handler))
+
+    assert summary["discovered"]["tools"][0]["name"] == "echo"
+
+
+def test_discovery_refuses_compressed_responses():
+    seen = []
+
+    def handler(request):
+        if request.url.path != "/mcp":
+            return gateway(request)
+        seen.append(request.headers.get("accept-encoding"))
+        return httpx.Response(200, content=b"\x1f\x8b", headers={"content-encoding": "gzip"})
+
+    summary = get_ai_gateways_summary(client_for(handler))
+
+    assert seen == ["identity"]
+    assert summary["discovered"] is None
+    assert summary["state"] == "ok"
+
+
+def test_discovery_stops_at_the_deadline(monkeypatch):
+    monkeypatch.setattr(ai_gateways, "MCP_DISCOVERY_DEADLINE_SECONDS", -1.0)
+
+    summary = get_ai_gateways_summary(client_for(gateway))
+
+    assert summary["discovered"] is None
+    assert summary["discoveryError"] == "ValueError"
+
+
 def test_discovery_is_cached():
     calls = []
 
@@ -222,7 +268,7 @@ def test_discovery_is_cached():
 def test_discovery_rejects_oversized_responses():
     def handler(request):
         if request.url.path == "/mcp":
-            return httpx.Response(200, content=b"x" * (ai_gateways.MAX_MCP_RESPONSE_BYTES + 1))
+            return streamed("x" * (ai_gateways.MAX_MCP_RESPONSE_BYTES + 1))
         return gateway(request)
 
     summary = get_ai_gateways_summary(client_for(handler))

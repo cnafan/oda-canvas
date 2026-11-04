@@ -35,12 +35,15 @@ kind load docker-image --name oda-canvas \
 helm dependency update charts/agentgateway
 helm install agentgateway charts/agentgateway -n canvas \
   -f charts/agentgateway/values-kind.yaml \
-  --set-string 'agentgateway-standalone.config.llm.models[0].params.baseUrl=http://<llm-host>:<port>/v1'
+  --set-string 'agentgateway-standalone.config.llm.models[0].params.baseUrl=http://<llm-host>:<port>/v1' \
+  --set-string 'agentgateway-standalone.config.routes[0].backends[0].host=sample-agent.components.svc.cluster.local:8080'
 ```
 
-`values-kind.yaml` assumes the release is called `agentgateway` in the `canvas` namespace, and that `sample-agent` runs in `components`.
+The test MCP server image is never published, so an install that enables `testMcpServer` needs the image loaded into the cluster first. `values-kind.yaml` also assumes the release is called `agentgateway`, because it names that server's Service.
 
-Set the LLM URL again on every `helm upgrade`, or use `--reuse-values`.
+Set both values again on every `helm upgrade`, or use `--reuse-values`.
+
+Install with Helm directly. The chart reads the existing `agentgateway-portal-key` secret to keep the key across upgrades, which needs a live cluster. Applying `helm template` output, such as Argo CD's default rendering, generates a new key on each render, and the portal's AI Gateways page then shows that it's unauthorized.
 
 ## Paths on the gateway (kind overlay)
 

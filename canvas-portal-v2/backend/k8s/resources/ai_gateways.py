@@ -8,7 +8,8 @@ import json
 import re
 import socket
 import threading
-from typing import Any
+import time
+from typing import Any, NamedTuple
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -18,22 +19,22 @@ from config import get_settings
 
 MCP_ACCEPT = "application/json, text/event-stream"
 MAX_MCP_RESPONSE_BYTES = 1024 * 1024
+MCP_DISCOVERY_DEADLINE_SECONDS = 8.0
 
 # Case-sensitive `[Tt]oken$`, so rate-limit fields such as maxTokens stay visible.
 _SECRET_KEY = re.compile(
     r"[Ss]ecret|[Pp]assword|[Aa]pi[-_]?[Kk]ey|[Aa]uthorization|[Cc]ookie|[Cc]redential|[Tt]oken$|^key$"
 )
+# An auth scheme only counts when followed by a credential-length token, so that
+# text such as "Basic calculator" in a tool description stays readable.
 _SECRET_VALUE = re.compile(
-    r"(?i)\b(?:bearer|basic)\s+\S+"  # Authorization values
+    r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9+/=._~-]{16,}"  # Authorization values
     r"|\bsk-[A-Za-z0-9_-]{8,}"  # Provider API keys
-    r"|(?<=://)[^/@\s]+(?=@)"  # URL userinfo
-    r"|^[^/@\s]+(?=@)"  # Userinfo on a host with no scheme
-    r"|(?<=[?&]key=)[^&\s]+"  # Secret-like query parameters
-    r"|(?<=[?&]token=)[^&\s]+"
-    r"|(?<=[?&]secret=)[^&\s]+"
-    r"|(?<=[?&]password=)[^&\s]+"
-    r"|(?<=[?&]api_key=)[^&\s]+"
-    r"|(?<=[?&]apikey=)[^&\s]+"
+    r"|(?<=://)[^/?#\s]*(?=@)"  # URL userinfo, up to the last @ in the authority
+    r"|^[^/?#\s]*(?=@)"  # Userinfo on a host with no scheme
+)
+_SECRET_PARAM = re.compile(
+    r"(?i)([?&;#][\w-]*(?:key|token|secret|password|credential|auth|sig)[\w-]*=)[^&;#\s]+"
 )
 
 # Policies shown elsewhere on the page, or with nothing to show.
@@ -46,6 +47,15 @@ _POLICY_FIELDS = {
 
 _discovery_cache: TTLCache = TTLCache(maxsize=1, ttl=30)
 _discovery_lock = threading.Lock()
+
+
+class _Backend(NamedTuple):
+    kind: str
+    body: dict[str, Any]
+    policies: list[Any]
+
+
+_MISSING_BACKEND = _Backend("", {}, [])
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -63,7 +73,7 @@ def sanitize(value: Any) -> Any:
     if isinstance(value, list):
         return [sanitize(item) for item in value]
     if isinstance(value, str):
-        return _SECRET_VALUE.sub("<redacted>", value)
+        return _SECRET_PARAM.sub(r"\1<redacted>", _SECRET_VALUE.sub("<redacted>", value))
     return value
 
 
@@ -82,8 +92,7 @@ def _format_match(match: Any) -> str:
     return f"{method} {text}" if isinstance(method, str) else text
 
 
-def _backend_index(dump: dict[str, Any]) -> dict[str, tuple[str, dict[str, Any], list[Any]]]:
-    """Map backend name to (kind, body, inline policies)."""
+def _backend_index(dump: dict[str, Any]) -> dict[str, _Backend]:
     index = {}
     for entry in _as_list(dump.get("backends")):
         entry = _as_dict(entry)
@@ -91,7 +100,7 @@ def _backend_index(dump: dict[str, Any]) -> dict[str, tuple[str, dict[str, Any],
             body = _as_dict(body)
             name = body.get("name")
             if isinstance(name, str):
-                index[name] = (kind, body, _as_list(entry.get("inlinePolicies")))
+                index[name] = _Backend(kind, body, _as_list(entry.get("inlinePolicies")))
     return index
 
 
@@ -99,7 +108,7 @@ def _backend_ref(ref: Any) -> str:
     return ref.lstrip("/") if isinstance(ref, str) else ""
 
 
-def _routes(dump: dict[str, Any], backends: dict[str, Any]) -> list[dict[str, Any]]:
+def _routes(dump: dict[str, Any], backends: dict[str, _Backend]) -> list[dict[str, Any]]:
     """Flatten routes, leaving out the gateway's own read path (internal backends only)."""
     routes = []
     for bind in _as_list(dump.get("binds")):
@@ -108,7 +117,7 @@ def _routes(dump: dict[str, Any], backends: dict[str, Any]) -> list[dict[str, An
                 route = _as_dict(route)
                 refs = [_as_dict(b) for b in _as_list(route.get("backends"))]
                 names = [_backend_ref(b.get("backend")) for b in refs]
-                kinds = [backends.get(n, ("",))[0] for n in names]
+                kinds = [backends.get(n, _MISSING_BACKEND).kind for n in names]
                 if kinds and all(kind == "internal" for kind in kinds):
                     continue
                 routes.append({
@@ -129,14 +138,14 @@ def _routes_to(routes: list[dict[str, Any]], names: set[str]) -> list[str]:
     return matches
 
 
-def _parse_models(backends: dict[str, Any], routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    routers = [name for name, (kind, _, _) in backends.items() if kind == "llmRouter"]
+def _parse_models(backends: dict[str, _Backend], routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    routers = [name for name, backend in backends.items() if backend.kind == "llmRouter"]
     models = []
-    for name, (kind, body, _) in backends.items():
-        if kind != "ai":
+    for name, backend in backends.items():
+        if backend.kind != "ai":
             continue
         match = _routes_to(routes, {name, *routers})
-        for group in _as_list(_as_dict(body.get("target")).get("providers")):
+        for group in _as_list(_as_dict(backend.body.get("target")).get("providers")):
             group = _as_dict(group)
             for status in ("active", "rejected"):
                 for model_name, item in _as_dict(group.get(status)).items():
@@ -153,13 +162,13 @@ def _parse_models(backends: dict[str, Any], routes: list[dict[str, Any]]) -> lis
 
 
 def _parse_tools(
-    backends: dict[str, Any], routes: list[dict[str, Any]], warnings: list[str]
+    backends: dict[str, _Backend], routes: list[dict[str, Any]], warnings: list[str]
 ) -> list[dict[str, Any]]:
     tools = []
-    for name, (kind, body, _) in backends.items():
-        if kind != "mcp":
+    for name, backend in backends.items():
+        if backend.kind != "mcp":
             continue
-        target_config = _as_dict(body.get("target"))
+        target_config = _as_dict(backend.body.get("target"))
         match = _routes_to(routes, {name})
         for target in _as_list(target_config.get("targets")):
             target = _as_dict(target)
@@ -167,8 +176,8 @@ def _parse_tools(
                 ((k, v) for k, v in target.items() if isinstance(v, dict)), ("", {})
             )
             ref = _backend_ref(_as_dict(spec.get("backend")).get("backend"))
-            resolved = backends.get(ref)
-            host = resolved[1].get("target") if resolved and resolved[0] == "host" else None
+            resolved = backends.get(ref, _MISSING_BACKEND)
+            host = resolved.body.get("target") if resolved.kind == "host" else None
             if not isinstance(host, str):
                 host = ""
                 warnings.append(f"MCP target {target.get('name')} has no resolvable host")
@@ -187,18 +196,18 @@ def _has_a2a(policies: list[Any]) -> bool:
     return any("a2a" in _as_dict(policy) for policy in policies)
 
 
-def _parse_agents(backends: dict[str, Any], routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _parse_agents(backends: dict[str, _Backend], routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     agents = []
     for route in routes:
         for ref, name in zip(route["refs"], route["backendNames"]):
-            resolved = backends.get(name, ("", {}, []))
+            resolved = backends.get(name, _MISSING_BACKEND)
             if not (
                 _has_a2a(_as_list(ref.get("inlinePolicies")))
                 or _has_a2a(route["policies"])
-                or _has_a2a(resolved[2])
+                or _has_a2a(resolved.policies)
             ):
                 continue
-            target = resolved[1].get("target")
+            target = resolved.body.get("target")
             agents.append({
                 "name": route["name"],
                 "matches": route["matches"],
@@ -208,6 +217,9 @@ def _parse_agents(backends: dict[str, Any], routes: list[dict[str, Any]]) -> lis
 
 
 def _policy_settings(policy_type: str, body: Any) -> list[dict[str, Any]]:
+    if policy_type == "urlRewrite":
+        path = _as_dict(_as_dict(body).get("path"))
+        return [{field: path[field] for field in ("prefix", "full") if field in path}]
     fields = _POLICY_FIELDS.get(policy_type, ())
     items = body if isinstance(body, list) else [body]
     return [
@@ -256,22 +268,29 @@ def _parse_mcp_body(body: str, content_type: str) -> dict[str, Any]:
     """Read a JSON-RPC result from a plain JSON or a single-event SSE response."""
     if "text/event-stream" in content_type:
         for line in body.splitlines():
-            if line.startswith("data:"):
-                return _as_dict(_as_dict(json.loads(line[5:])).get("result"))
+            data = line[5:].strip() if line.startswith("data:") else ""
+            if data:
+                return _as_dict(_as_dict(json.loads(data)).get("result"))
         return {}
     return _as_dict(_as_dict(json.loads(body)).get("result"))
 
 
-def _mcp_list(client: httpx.Client, url: str, method: str) -> dict[str, Any]:
+def _mcp_list(client: httpx.Client, url: str, method: str, deadline: float) -> dict[str, Any]:
     payload = {"jsonrpc": "2.0", "id": 1, "method": method}
-    with client.stream("POST", url, json=payload, headers={"Accept": MCP_ACCEPT}) as response:
+    # Tool lists come from upstream MCP servers, so limit what's read from them. Count
+    # raw bytes and refuse compression, so the limit can't be passed by decompressing.
+    headers = {"Accept": MCP_ACCEPT, "Accept-Encoding": "identity"}
+    with client.stream("POST", url, json=payload, headers=headers) as response:
         response.raise_for_status()
-        # Tool lists come from upstream MCP servers, so bound what's read from them.
+        if response.headers.get("content-encoding", "identity").lower() != "identity":
+            raise ValueError("MCP response is compressed")
         body = bytearray()
-        for chunk in response.iter_bytes():
+        for chunk in response.iter_raw():
             body += chunk
             if len(body) > MAX_MCP_RESPONSE_BYTES:
                 raise ValueError("MCP response is too large")
+            if time.monotonic() > deadline:
+                raise ValueError("MCP response took too long")
         return _parse_mcp_body(body.decode("utf-8", "replace"), response.headers.get("content-type", ""))
 
 
@@ -280,8 +299,9 @@ def _discover_mcp(client: httpx.Client, url: str) -> dict[str, Any]:
     if not url:
         return {"discovered": None, "discoveryError": "MCP URL isn't configured"}
     try:
-        tools = _mcp_list(client, url, "tools/list")
-        resources = _mcp_list(client, url, "resources/list")
+        deadline = time.monotonic() + MCP_DISCOVERY_DEADLINE_SECONDS
+        tools = _mcp_list(client, url, "tools/list", deadline)
+        resources = _mcp_list(client, url, "resources/list", deadline)
     except (httpx.HTTPError, ValueError) as exc:
         return {"discovered": None, "discoveryError": type(exc).__name__}
     return {

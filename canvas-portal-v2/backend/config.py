@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     # token needs the nms_oss role to see every review state and health data.
     REGISTRY_CENTER_URL: str = ""
     REGISTRY_CENTER_TOKEN: str = ""
+    REGISTRY_CENTER_PAGE_URL: str = ""
 
     # External registries added from the portal: metadata on the PVC, credentials in one Secret.
     EXTERNAL_REGISTRY_CATALOG_PATH: str = "/app/data/external-registries.json"

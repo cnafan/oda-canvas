@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Checkbox, Input, Popconfirm, Select, Spin, Tag, message } from 'antd'
-import { ApiOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Alert, Button, Checkbox, Input, Popconfirm, Select, Spin, Tag, Tooltip, message } from 'antd'
+import { ApiOutlined, DeleteOutlined, EditOutlined, ExportOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons'
 import {
   addRegistrySource,
   refreshAgents,
@@ -9,6 +9,7 @@ import {
   removeRegistrySource,
   testRegistryConnection,
   testSavedRegistry,
+  updateRegistrySource,
   useAgents,
   useRegistrySources,
   type AuthType,
@@ -32,6 +33,7 @@ const AUTH_LABELS: Record<AuthType, string> = { none: 'No credentials', token: '
 const EMPTY_FORM = {
   name: '',
   url: '',
+  pageUrl: '',
   authType: 'token' as AuthType,
   grantType: 'client_credentials' as GrantType,
   token: '',
@@ -52,6 +54,14 @@ const STATUS_LABELS: Record<RegistryStatus['status'], string> = {
 }
 
 const isPlainHttp = (url: string) => /^\s*http:\/\//i.test(url)
+
+function sameOrigin(first: string, second: string) {
+  try {
+    return new URL(first.trim()).origin === new URL(second.trim()).origin
+  } catch {
+    return false
+  }
+}
 
 const subtleButton = {
   background: 'transparent',
@@ -90,6 +100,8 @@ function TestResultAlert({ result, onClose }: { result: ConnectionTestResult; on
 export default function RegistrySources() {
   const queryClient = useQueryClient()
   const [form, setForm] = useState(EMPTY_FORM)
+  const [editing, setEditing] = useState<RegistrySource | null>(null)
+  const formRef = useRef<HTMLDivElement>(null)
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null)
   const [testing, setTesting] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -114,8 +126,27 @@ export default function RegistrySources() {
   const needsCredentials = form.authType !== 'none'
   const insecure = needsCredentials && (isPlainHttp(form.url) || (isOauth && isPlainHttp(form.tokenUrl)))
 
+  // The backend applies the same rule: saved credentials never follow a registry to a new address.
+  const keepsCredentials =
+    !!editing &&
+    needsCredentials &&
+    editing.credentialsSet &&
+    form.authType === editing.authType &&
+    sameOrigin(form.url, editing.url) &&
+    (!isOauth || (form.grantType === editing.grantType && sameOrigin(form.tokenUrl, editing.tokenUrl ?? '')))
+
+  const typedCredentials = [
+    form.authType === 'token' && form.token,
+    usesPassword && form.username,
+    usesPassword && form.password,
+    isOauth && form.clientId,
+    isOauth && form.clientSecret,
+    isOauth && form.scope,
+  ].some((value) => value && value.trim())
+
   const credentialsComplete =
     !needsCredentials ||
+    (keepsCredentials && !typedCredentials) ||
     (form.authType === 'token'
       ? !!form.token.trim()
       : (!usesPassword || (!!form.username.trim() && !!form.password.trim())) &&
@@ -123,10 +154,13 @@ export default function RegistrySources() {
         (!isOauth || !!form.tokenUrl.trim()))
   const complete = !!form.name.trim() && !!form.url.trim() && credentialsComplete && (!insecure || form.allowInsecureHttp)
 
+  const credentialPlaceholder = (label: string) => (keepsCredentials ? `${label} (leave blank to keep)` : label)
+
   function buildInput(): RegistrySourceInput {
     const base = {
       name: form.name,
       url: form.url,
+      pageUrl: form.pageUrl.trim() || undefined,
       authType: form.authType,
       skipTlsVerify: form.skipTlsVerify,
       allowInsecureHttp: form.allowInsecureHttp,
@@ -153,7 +187,7 @@ export default function RegistrySources() {
     setTesting(true)
     setTestResult(null)
     try {
-      setTestResult(await testRegistryConnection(buildInput()))
+      setTestResult(await (editing ? testSavedRegistry(editing.id, buildInput()) : testRegistryConnection(buildInput())))
     } catch (err) {
       message.error(registryErrorMessage(err))
     } finally {
@@ -176,11 +210,50 @@ export default function RegistrySources() {
     }
   }
 
+  function startEdit(source: RegistrySource) {
+    setEditing(source)
+    setForm({
+      ...EMPTY_FORM,
+      name: source.name,
+      url: source.url,
+      pageUrl: source.pageUrl ?? '',
+      authType: source.authType,
+      grantType: source.grantType ?? EMPTY_FORM.grantType,
+      tokenUrl: source.tokenUrl ?? '',
+      skipTlsVerify: !!source.skipTlsVerify,
+    })
+    setTestResult(null)
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  function stopEdit() {
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setTestResult(null)
+  }
+
+  async function handleSave() {
+    if (!editing) return
+    setAdding(true)
+    try {
+      const updated = await updateRegistrySource(editing.id, buildInput())
+      message.success(`Saved ${updated.name}`)
+      setRowResults(({ [editing.id]: _stale, ...rest }) => rest)
+      stopEdit()
+      await refreshAll()
+    } catch (err) {
+      message.error(registryErrorMessage(err))
+    } finally {
+      setAdding(false)
+    }
+  }
+
   async function handleRemove(source: RegistrySource) {
     setBusyId(source.id)
     try {
       await removeRegistrySource(source.id)
       message.success(`Removed ${source.name}`)
+      if (editing?.id === source.id) stopEdit()
       await refreshAll()
     } catch (err) {
       message.error(registryErrorMessage(err))
@@ -220,6 +293,23 @@ export default function RegistrySources() {
         <Alert type="warning" showIcon message={storeError} style={{ marginBottom: 12 }} />
       )}
 
+      <div ref={formRef} />
+      {editing && (
+        <Alert
+          type="info"
+          showIcon
+          message={`Editing ${editing.name}`}
+          description={
+            !needsCredentials
+              ? undefined
+              : keepsCredentials
+                ? 'Leave the credential fields blank to keep the saved ones.'
+                : 'Enter the credentials again. Saved ones are kept only while the authentication type and the address\'s host and port stay the same.'
+          }
+          style={{ marginBottom: 12 }}
+        />
+      )}
+
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
         <Input
           aria-label="Registry name"
@@ -237,6 +327,14 @@ export default function RegistrySources() {
           maxLength={2048}
           style={{ flex: '2 1 320px', minWidth: 260 }}
         />
+        <Input
+          aria-label="Registry page"
+          value={form.pageUrl}
+          onChange={(e) => update({ pageUrl: e.target.value })}
+          placeholder="Registry page (optional)"
+          maxLength={2048}
+          style={{ flex: '2 1 260px', minWidth: 220 }}
+        />
         <Select
           aria-label="Authentication"
           value={form.authType}
@@ -252,7 +350,7 @@ export default function RegistrySources() {
             aria-label="Token"
             value={form.token}
             onChange={(e) => update({ token: e.target.value })}
-            placeholder="Bearer token"
+            placeholder={credentialPlaceholder('Bearer token')}
             autoComplete="new-password"
             style={{ flex: '1 1 320px', minWidth: 260 }}
           />
@@ -285,7 +383,7 @@ export default function RegistrySources() {
               aria-label="Username"
               value={form.username}
               onChange={(e) => update({ username: e.target.value })}
-              placeholder="Username"
+              placeholder={credentialPlaceholder('Username')}
               autoComplete="off"
               style={{ flex: '1 1 180px', minWidth: 180 }}
             />
@@ -293,7 +391,7 @@ export default function RegistrySources() {
               aria-label="Password"
               value={form.password}
               onChange={(e) => update({ password: e.target.value })}
-              placeholder="Password"
+              placeholder={credentialPlaceholder('Password')}
               autoComplete="new-password"
               style={{ flex: '1 1 180px', minWidth: 180 }}
             />
@@ -305,7 +403,7 @@ export default function RegistrySources() {
               aria-label="Client ID"
               value={form.clientId}
               onChange={(e) => update({ clientId: e.target.value })}
-              placeholder={usesClientSecret ? 'Client ID' : 'Client ID (optional)'}
+              placeholder={credentialPlaceholder(usesClientSecret ? 'Client ID' : 'Client ID (optional)')}
               autoComplete="off"
               style={{ flex: '1 1 180px', minWidth: 180 }}
             />
@@ -313,7 +411,7 @@ export default function RegistrySources() {
               aria-label="Client secret"
               value={form.clientSecret}
               onChange={(e) => update({ clientSecret: e.target.value })}
-              placeholder={usesClientSecret ? 'Client secret' : 'Client secret (optional)'}
+              placeholder={credentialPlaceholder(usesClientSecret ? 'Client secret' : 'Client secret (optional)')}
               autoComplete="new-password"
               style={{ flex: '1 1 180px', minWidth: 180 }}
             />
@@ -321,7 +419,7 @@ export default function RegistrySources() {
               aria-label="Scope"
               value={form.scope}
               onChange={(e) => update({ scope: e.target.value })}
-              placeholder="Scope (optional)"
+              placeholder={credentialPlaceholder('Scope (optional)')}
               style={{ flex: '1 1 180px', minWidth: 180 }}
             />
           </>
@@ -355,13 +453,18 @@ export default function RegistrySources() {
         </Button>
         <Button
           type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleAdd}
+          icon={editing ? <SaveOutlined /> : <PlusOutlined />}
+          onClick={editing ? handleSave : handleAdd}
           disabled={!complete || !!storeError}
           loading={adding}
         >
-          Add Registry
+          {editing ? 'Save Changes' : 'Add Registry'}
         </Button>
+        {editing && (
+          <Button onClick={stopEdit} disabled={adding} style={subtleButton}>
+            Cancel
+          </Button>
+        )}
         <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={refreshing} style={subtleButton}>
           Refresh
         </Button>
@@ -438,27 +541,51 @@ export default function RegistrySources() {
                       <div style={{ color: colors.statusDown, fontSize: 12, marginTop: 6 }}>{status.message}</div>
                     )}
                   </div>
-                  {!source.builtin && (
+                  {(source.pageUrl || !source.builtin) && (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <Button
-                        icon={<ApiOutlined />}
-                        loading={busyId === source.id}
-                        onClick={() => handleRowTest(source)}
-                        style={subtleButton}
-                      >
-                        Test
-                      </Button>
-                      <Popconfirm
-                        title={`Remove ${source.name}?`}
-                        description="Its saved credentials are deleted too."
-                        okText="Remove"
-                        okButtonProps={{ danger: true }}
-                        onConfirm={() => handleRemove(source)}
-                      >
-                        <Button icon={<DeleteOutlined />} danger disabled={busyId === source.id}>
-                          Remove
-                        </Button>
-                      </Popconfirm>
+                      {source.pageUrl && (
+                        <Tooltip title="Open URL">
+                          <Button
+                            aria-label={`Open the ${source.name} registry page`}
+                            icon={<ExportOutlined />}
+                            href={source.pageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={subtleButton}
+                          />
+                        </Tooltip>
+                      )}
+                      {!source.builtin && (
+                        <>
+                          <Button
+                            icon={<ApiOutlined />}
+                            loading={busyId === source.id}
+                            onClick={() => handleRowTest(source)}
+                            style={subtleButton}
+                          >
+                            Test
+                          </Button>
+                          <Button
+                            icon={<EditOutlined />}
+                            disabled={busyId === source.id}
+                            onClick={() => startEdit(source)}
+                            style={subtleButton}
+                          >
+                            Edit
+                          </Button>
+                          <Popconfirm
+                            title={`Remove ${source.name}?`}
+                            description="Its saved credentials are deleted too."
+                            okText="Remove"
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => handleRemove(source)}
+                          >
+                            <Button icon={<DeleteOutlined />} danger disabled={busyId === source.id}>
+                              Remove
+                            </Button>
+                          </Popconfirm>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

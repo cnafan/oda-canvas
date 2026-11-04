@@ -34,6 +34,7 @@ data:
   AGENTGATEWAY_LLM_URL: {{ ((.Values.backend.aiGateways | default dict).llmUrl | default "") | quote }}
   OBSERVABILITY_PROVIDERS_JSON: {{ ((.Values.backend.observability).providers | default list) | toJson | quote }}
   REGISTRY_CENTER_URL: {{ ((.Values.backend.registryCenter | default dict).url | default "") | quote }}
+  REGISTRY_CENTER_PAGE_URL: {{ ((.Values.backend.registryCenter | default dict).pageUrl | default "") | quote }}
   EXTERNAL_REGISTRY_CATALOG_PATH: {{ printf "%s/external-registries.json" .Values.backend.persistence.mountPath | quote }}
   {{- if (.Values.rbac.registryCredentials | default dict).enabled }}
   REGISTRY_CREDENTIALS_SECRET: {{ printf "%s-registry-credentials" (include "canvas-portal.backend.fullname" .) | quote }}

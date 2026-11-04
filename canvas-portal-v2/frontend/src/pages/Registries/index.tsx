@@ -23,8 +23,8 @@ const sections: PageSection[] = [
 
 const sourcesSection: PageSection = {
   key: 'sources',
-  title: 'External Registries',
-  description: 'Add registries running outside this cluster, so their agents and skills are listed above.',
+  title: 'Manage Registries',
+  description: 'Manually configure agent and skill registries',
   content: <RegistrySources />,
 }
 

@@ -66,6 +66,8 @@ class FakeCore:
 
 class FakeGateway:
     def __init__(self):
+        self.recovery_polls = 0
+        self.recovery_delay = 0
         self.last_error = None
         self.names = ["org/first"]
         self.generation = 0
@@ -81,12 +83,17 @@ class FakeGateway:
             self.key_arrives_late -= 1
             self.last_error = "llm.models[1].params: read resource file /llm-keys/abc at line 8"
             return
+        if self.last_error:
+            self.recovery_polls = self.recovery_delay
         self.last_error = None
         self.names = [m["name"] for m in document["llm"]["models"]]
         self.generation += 1
 
     def handle(self, request):
         if request.url.path == "/api/runtime":
+            if self.recovery_polls and not self.last_error:
+                self.recovery_polls -= 1
+                return httpx.Response(200, json={"configReload": {"synchronized": False, "lastError": "old error"}})
             return httpx.Response(200, json={"configReload": {"synchronized": not self.last_error, "lastError": self.last_error}})
         return httpx.Response(200, json=self.dump())
 
@@ -512,3 +519,13 @@ def test_an_unconfirmed_change_keeps_the_replaced_key(core, http, gateway):
     result = models.save_model(request(apiKey="sk-two"), "second", view["revision"], core=core, http=http)
     assert result["applied"] is False
     assert old <= set(core.keys)
+
+
+def test_a_change_right_after_a_rejection_is_not_blocked(core, http, gateway):
+    gateway.reject_with = "unknown field"
+    gateway.recovery_delay = 3  # The gateway takes a moment to load the restored file.
+    with pytest.raises(GatewayRequestRefused) as refused:
+        models.save_model(request(advanced={"guardrails-bad": {}}), core=core, http=http)
+    assert refused.value.status_code == 422
+    assert gateway.recovery_polls == 0
+    assert models.save_model(request(), core=core, http=http)["applied"] is True

@@ -278,6 +278,18 @@ def _await_reload(
         time.sleep(POLL_SECONDS)
 
 
+def _await_recovery(http: httpx.Client, deadline_seconds: float) -> None:
+    """The gateway reports its last error until it reloads, which would refuse the next change."""
+    deadline = time.monotonic() + deadline_seconds
+    while time.monotonic() < deadline:
+        try:
+            if not _read_gateway(http).last_error:
+                return
+        except (httpx.HTTPError, ValueError):
+            pass
+        time.sleep(POLL_SECONDS)
+
+
 def _strings_with_placeholder(value: Any) -> set[str]:
     if isinstance(value, str):
         return {value} if "$" in value else set()
@@ -381,7 +393,8 @@ def _change_config(
             raise GatewayRequestRefused(
                 502, "The gateway rejected this change, and it couldn't be undone. Check the gateway config."
             ) from exc
-        _nudge_pods(core)
+        nudged = _nudge_pods(core)
+        _await_recovery(http, NUDGED_DEADLINE_SECONDS if nudged else UNNUDGED_DEADLINE_SECONDS)
         _delete_key(core, new_key_file)
         raise GatewayRequestRefused(
             422, f"The gateway rejected this change, so it was undone: {_mask_prose(error)}"

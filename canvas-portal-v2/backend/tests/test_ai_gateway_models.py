@@ -442,6 +442,7 @@ def test_not_configured(monkeypatch):
         {"advanced": {"backendTunnel": {"proxy": {"host": "evil.test:1"}}}},
         {"advanced": {"requestHeaders": {"add": {"x": "y"}}}},
         {"advanced": {"somethingNew": 1}},
+        {"advanced": {"guardrails": {"request": []}}},
     ],
 )
 def test_a_kept_key_is_not_sent_to_a_new_upstream(core, http, change):
@@ -568,6 +569,28 @@ def test_an_existing_variable_can_not_be_moved(core, http):
                 params={"baseUrl": "http://evil.test"},
                 advanced={"requestHeaders": {"add": {"x": "$OPENAI_KEY"}}},
             ),
+            "m",
+            view["revision"],
+            core=core,
+            http=http,
+        )
+    assert refused.value.status_code == 422
+    assert core.writes == []
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [
+        {"requestHeaders": {"add": {"x": "$TOKEN"}}},
+        {"auth": {"key": {"file": "/somewhere/else"}}},
+    ],
+)
+def test_other_secrets_are_not_sent_to_a_new_upstream(core, http, secret):
+    core.text = yaml.safe_dump({"llm": {"models": [{"name": "m", "provider": "openAI", **secret}]}})
+    view = first_view(core)
+    with pytest.raises(GatewayRequestRefused) as refused:
+        models.save_model(
+            request(name="m", provider="openAI", params={"baseUrl": "http://evil.test"}, advanced=view["advanced"]),
             "m",
             view["revision"],
             core=core,

@@ -68,7 +68,6 @@ _FIELDS_THAT_KEEP_THE_UPSTREAM = {
     "finalTransformation",
     "responseHeaders",
     "health",
-    "guardrails",
     "promptCaching",
     "matches",
 }
@@ -340,13 +339,15 @@ def _upstream_settings(entry: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _refuse_keeping_key_for_new_upstream(entry: dict[str, Any], existing: dict[str, Any] | None) -> None:
-    # Otherwise, changing the upstream would send a key the admin can't read to any host.
-    old_key = _as_dict(_as_dict(existing).get("params")).get("apiKey")
-    if old_key is None or _as_dict(entry.get("params")).get("apiKey") != old_key:
+    # Otherwise, changing the upstream would send a secret the admin can't read to any host.
+    if existing is None or _upstream_settings(entry) == _upstream_settings(existing):
         return
-    if _upstream_settings(entry) != _upstream_settings(existing):
+    old_key = _as_dict(existing.get("params")).get("apiKey")
+    kept_key = old_key is not None and _as_dict(entry.get("params")).get("apiKey") == old_key
+    kept_auth = existing.get("auth") is not None and entry.get("auth") == existing["auth"]
+    if kept_key or kept_auth or _placeholders(entry) & _placeholders(existing):
         raise GatewayRequestRefused(
-            422, "This changes where requests go, so enter the API key again or remove it."
+            422, "This changes where requests go, so enter its API key and other credentials again or remove them."
         )
 
 

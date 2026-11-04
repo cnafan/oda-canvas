@@ -606,6 +606,9 @@ def test_other_secrets_are_not_sent_to_a_new_upstream(core, http, secret):
         {"advanced": {"auth": {"key": {"file": "/var/run/secrets/kubernetes.io/serviceaccount/token"}}}},
         {"advanced": {"auth": {"key": {"file": "/llm-keys/0123456789abcdef"}}}},
         {"advanced": {"tls": [{"file": "/etc/passwd"}]}},
+        {"advanced": {"tls": {"cert": "/var/run/secrets/x", "key": "/var/run/secrets/y"}}},
+        {"advanced": {"backendTLS": {"root": "/etc/passwd"}}},
+        {"advanced": {"guardrails": {"request": [{"webhook": {"target": {"policies": {"backendTLS": {"key": "/k"}}}}}]}}},
         {"provider": {"custom": {"auth": {"file": "/etc/passwd"}}}},
     ],
 )

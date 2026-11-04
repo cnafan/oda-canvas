@@ -73,7 +73,7 @@ def call_tool(body: McpToolCallRequest, _: AuthUser = Depends(require_admin)):
 
 
 @router.post("/mcp/resources/read")
-def read_resource(body: McpResourceReadRequest, _: AuthUser = Depends(get_current_user)):
+def read_resource(body: McpResourceReadRequest, _: AuthUser = Depends(require_admin)):
     try:
         return JSONResponse(read_mcp_resource(body.uri))
     except GatewayRequestRefused as exc:

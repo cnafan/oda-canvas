@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from auth.middleware import get_current_user, is_admin, require_admin
 from auth.models import AuthUser
+from k8s.resources.ai_gateway_mcp import list_mcp_targets, remove_mcp_target, save_mcp_target
 from k8s.resources.ai_gateway_models import list_model_configs, remove_model, save_model
 from k8s.resources.ai_gateways import (
     MAX_MCP_ARGUMENTS_BYTES,
@@ -22,6 +23,7 @@ from k8s.resources.ai_gateways import (
 )
 
 logger = logging.getLogger(__name__)
+MAX_OPENAPI_SCHEMA_LENGTH = 256 * 1024
 
 router = APIRouter(prefix="/api/ai-gateways", tags=["ai-gateways"])
 
@@ -75,6 +77,12 @@ def _limit_json(value: Any) -> None:
         raise ValueError("This value is too large")
 
 
+def _clean_name(value: str) -> str:
+    if value != value.strip() or not value.isprintable():
+        raise ValueError("The name can't have surrounding spaces or control characters")
+    return value
+
+
 class ModelConfigRequest(BaseModel):
     name: str = Field(min_length=1, max_length=256)
     provider: str | dict[str, Any]
@@ -88,9 +96,7 @@ class ModelConfigRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def name_has_no_outer_space(cls, value: str) -> str:
-        if value != value.strip() or not value.isprintable():
-            raise ValueError("The name can't have surrounding spaces or control characters")
-        return value
+        return _clean_name(value)
 
     @field_validator("provider", "advanced")
     @classmethod
@@ -100,6 +106,39 @@ class ModelConfigRequest(BaseModel):
 
 
 class ModelConfigUpdate(ModelConfigRequest):
+    originalName: str = Field(min_length=1, max_length=256)
+    revision: str = Field(min_length=1, max_length=64)
+
+
+class McpTargetRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=256)
+    transport: Literal["mcp", "sse", "openapi", "stdio"]
+    host: str | None = Field(default=None, max_length=MAX_MCP_TEXT_LENGTH)
+    port: int | None = Field(default=None, ge=0, le=65535)
+    path: str | None = Field(default=None, max_length=MAX_MCP_TEXT_LENGTH)
+    schema_: str | None = Field(default=None, alias="schema", max_length=MAX_OPENAPI_SCHEMA_LENGTH)
+    condition: str | None = Field(default=None, max_length=MAX_MCP_TEXT_LENGTH)
+    authToken: str | None = Field(default=None, max_length=16384)
+    removeAuthToken: bool = False
+    policies: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("name")
+    @classmethod
+    def name_has_no_outer_space(cls, value: str) -> str:
+        return _clean_name(value)
+
+    @field_validator("policies")
+    @classmethod
+    def limit_size(cls, value: dict[str, Any]) -> dict[str, Any]:
+        _limit_json(value)
+        return value
+
+    def fields(self) -> dict[str, Any]:
+        exclude = {"schema_", "originalName", "revision"}
+        return {**self.model_dump(exclude=exclude), "schema": self.schema_}
+
+
+class McpTargetUpdate(McpTargetRequest):
     originalName: str = Field(min_length=1, max_length=256)
     revision: str = Field(min_length=1, max_length=64)
 
@@ -154,6 +193,29 @@ def delete_model(
 ):
     logger.info("AI gateway model removed by %s", user.username)
     return _refused_as_http(lambda: remove_model(name))
+
+
+@router.get("/mcp/targets")
+def get_mcp_targets(_: AuthUser = Depends(require_admin)):
+    return _refused_as_http(list_mcp_targets)
+
+
+@router.post("/mcp/targets")
+def add_mcp_target(body: McpTargetRequest, user: AuthUser = Depends(require_admin)):
+    logger.info("AI gateway MCP server added by %s", user.username)
+    return _refused_as_http(lambda: save_mcp_target(body.fields()))
+
+
+@router.put("/mcp/targets")
+def update_mcp_target(body: McpTargetUpdate, user: AuthUser = Depends(require_admin)):
+    logger.info("AI gateway MCP server changed by %s", user.username)
+    return _refused_as_http(lambda: save_mcp_target(body.fields(), body.originalName, body.revision))
+
+
+@router.delete("/mcp/targets")
+def delete_mcp_target(name: str = Query(min_length=1, max_length=256), user: AuthUser = Depends(require_admin)):
+    logger.info("AI gateway MCP server removed by %s", user.username)
+    return _refused_as_http(lambda: remove_mcp_target(name))
 
 
 # JSONResponse skips FastAPI's recursive encoder, which deeply nested upstream data could overflow.

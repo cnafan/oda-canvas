@@ -1,4 +1,5 @@
 import base64
+import socket
 from types import SimpleNamespace
 
 import httpx
@@ -7,6 +8,7 @@ import yaml
 from kubernetes.client.exceptions import ApiException
 
 from config import get_settings
+from k8s.resources import ai_gateway_config as config_file
 from k8s.resources import ai_gateway_models as models
 from k8s.resources.ai_gateways import GatewayRequestRefused
 
@@ -114,13 +116,18 @@ class FakeGateway:
         }
 
 
+def no_such_host(*args, **kwargs):
+    raise socket.gaierror
+
+
 @pytest.fixture(autouse=True)
 def gateway_settings(monkeypatch):
     monkeypatch.setenv("AGENTGATEWAY_CONFIG_URL", "http://gw.test:8081/config_dump")
     monkeypatch.setenv("AGENTGATEWAY_API_KEY", "test-key")
     monkeypatch.setenv("AGENTGATEWAY_CONFIG_NAMESPACE", "canvas")
-    monkeypatch.setattr(models, "POLL_SECONDS", 0)
-    monkeypatch.setattr(models, "NUDGED_DEADLINE_SECONDS", 0.05)
+    monkeypatch.setattr(config_file, "POLL_SECONDS", 0)
+    monkeypatch.setattr(config_file.socket, "getaddrinfo", no_such_host)
+    monkeypatch.setattr(config_file, "NUDGED_DEADLINE_SECONDS", 0.05)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -401,13 +408,13 @@ def test_conflicting_write_cleans_up_the_new_key(core, http):
 
 
 def test_only_one_change_at_a_time(core, http):
-    assert models._change_lock.acquire(blocking=False)
+    assert config_file._change_lock.acquire(blocking=False)
     try:
         with pytest.raises(GatewayRequestRefused) as refused:
             models.save_model(request(), core=core, http=http)
         assert refused.value.status_code == 409
     finally:
-        models._change_lock.release()
+        config_file._change_lock.release()
 
 
 def test_unconfirmed_change_says_so(core, http):
@@ -460,17 +467,17 @@ def test_a_kept_key_is_not_sent_to_a_new_upstream(core, http, change):
 
 
 def test_a_stale_missing_key_error_doesnt_use_up_the_deadline(core, http, gateway, monkeypatch):
-    monkeypatch.setattr(models, "MISSING_KEY_RETRY_SECONDS", 0.02)
-    monkeypatch.setattr(models, "POLL_SECONDS", 0.005)
-    monkeypatch.setattr(models, "NUDGED_DEADLINE_SECONDS", 2.0)
+    monkeypatch.setattr(config_file, "MISSING_KEY_RETRY_SECONDS", 0.02)
+    monkeypatch.setattr(config_file, "POLL_SECONDS", 0.005)
+    monkeypatch.setattr(config_file, "NUDGED_DEADLINE_SECONDS", 2.0)
     gateway.key_arrives_late = 8
     assert models.save_model(request(apiKey="sk-one"), core=core, http=http)["applied"] is True
     assert core.keys
 
 
 def test_a_key_file_that_never_arrives_is_undone(core, http, gateway, monkeypatch):
-    monkeypatch.setattr(models, "MISSING_KEY_RETRY_SECONDS", 0.01)
-    monkeypatch.setattr(models, "POLL_SECONDS", 0.005)
+    monkeypatch.setattr(config_file, "MISSING_KEY_RETRY_SECONDS", 0.01)
+    monkeypatch.setattr(config_file, "POLL_SECONDS", 0.005)
     gateway.key_arrives_late = 10_000
     original = core.text
     with pytest.raises(GatewayRequestRefused):
@@ -650,3 +657,27 @@ def test_an_existing_file_reference_stays_on_edit(core, http):
         http=http,
     )
     assert saved_models(core)[0]["auth"] == auth
+
+
+@pytest.mark.parametrize("url", ["http://127.0.0.1:15000/v1", "http://localhost:15000", "http://169.254.169.254/v1"])
+def test_a_base_url_can_not_point_at_the_gateway_itself(core, http, url):
+    with pytest.raises(GatewayRequestRefused) as refused:
+        models.save_model(request(params={"baseUrl": url}), core=core, http=http)
+    assert refused.value.status_code == 422
+    assert core.writes == []
+
+
+@pytest.mark.parametrize(
+    "advanced",
+    [
+        {"backendTunnel": {"proxy": {"host": "127.0.0.1:15000"}}},
+        {"guardrails": {"request": [{"webhook": {"target": {"host": "localhost:15000"}}}]}},
+        {"auth": {"gcp": {}}},
+        {"auth": {"passthrough": {}}},
+    ],
+)
+def test_advanced_settings_can_not_reach_the_gateway_or_its_identity(core, http, advanced):
+    with pytest.raises(GatewayRequestRefused) as refused:
+        models.save_model(request(advanced=advanced), core=core, http=http)
+    assert refused.value.status_code == 422
+    assert core.writes == []

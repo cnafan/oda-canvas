@@ -493,6 +493,37 @@ def test_passed_through_json_too_deep_to_serialize_is_dropped(secret, upstream):
     assert agent["capabilities"]["extensions"][1]["params"] == {"ok": {"a": 1}}
 
 
+@pytest.mark.parametrize("page", [b"<!DOCTYPE html><html></html>", b"\n  <HTML><body></body></HTML>"])
+def test_web_page_response_suggests_the_portal_registry_path(secret, upstream, monkeypatch, page):
+    upstream()
+
+    def send(method, url, **_):
+        return httpx.Response(200, content=page, request=httpx.Request(method, url))
+
+    monkeypatch.setattr(outbound, "send", send)
+    form = {**TOKEN_FORM, "url": "https://portal.example.com:9003/registry"}
+
+    body = client.post("/api/registries/sources/test", json=form).json()
+
+    assert body["classification"] == "web_page"
+    assert body["warnings"] == ["If this is an OpenAN Portal, its registry API is usually at https://portal.example.com:9003/api/registry-center."]
+
+
+def test_listing_a_web_page_reports_it_as_a_warning(secret, upstream, monkeypatch):
+    upstream()
+    add()
+
+    def send(method, url, **_):
+        return httpx.Response(200, content=b"<!doctype html>", request=httpx.Request(method, url))
+
+    monkeypatch.setattr(outbound, "send", send)
+
+    entry = client.get("/api/registries/agents").json()["registries"][0]
+
+    assert entry["status"] == "error"
+    assert entry["message"] == "The URL returned a web page instead of the registry API."
+
+
 def test_unrouted_health_route_does_not_fail_the_test(secret, upstream):
     upstream({"/health": (404, {})})
 
@@ -587,6 +618,50 @@ def test_test_endpoint_is_rate_limited(secret, upstream):
 
     assert codes[:10] == [200] * 10
     assert codes[10] == 429
+
+
+# --- No credentials ----------------------------------------------------------
+
+NO_AUTH_FORM = {"name": "Open", "url": BASE, "authType": "none"}
+
+
+def test_no_credentials_sends_no_authorization_header(secret, upstream):
+    calls = upstream()
+    created = add(NO_AUTH_FORM)
+
+    assert client.post("/api/registries/sources/test", json=NO_AUTH_FORM).json()["ok"] is True
+    body = client.get("/api/registries/agents").json()
+
+    assert created["authType"] == "none"
+    assert created["credentialsSet"] is True
+    assert body["registries"][0]["status"] == "ok"
+    assert calls and all("Authorization" not in (call["headers"] or {}) for call in calls)
+
+
+def test_no_credentials_ignores_any_submitted_credentials(secret, upstream):
+    calls = upstream()
+
+    created = add({**NO_AUTH_FORM, "token": SECRET, "username": "u", "password": SECRET})
+    client.get("/api/registries/agents")
+
+    assert SECRET not in json.dumps(secret.patches)
+    assert json.loads(base64.b64decode(secret.data[created["id"]])) == {}
+    assert all("Authorization" not in (call["headers"] or {}) for call in calls)
+
+
+def test_no_credentials_over_http_needs_no_confirmation(secret, upstream):
+    upstream(base="http://10.1.2.3")
+
+    assert client.post("/api/registries/sources", json={**NO_AUTH_FORM, "url": "http://10.1.2.3"}).status_code == 201
+
+
+def test_no_credentials_rejected_says_credentials_are_required(secret, upstream):
+    upstream({f"{API}/agent-cards": (401, {})})
+
+    body = client.post("/api/registries/sources/test", json=NO_AUTH_FORM).json()
+
+    assert body["classification"] == "bad_credentials"
+    assert "This registry requires credentials." in body["warnings"]
 
 
 # --- OAuth -------------------------------------------------------------------

@@ -1,0 +1,18 @@
+apiVersion: v2
+name: agentgateway
+description: AI gateway for LLM consumption, MCP connectivity, agent connectivity and traffic management, based on agentgateway in standalone mode
+type: application
+# version: 0.1.0 - initial chart wrapping agentgateway-standalone v1.7.0
+version: 0.1.0
+appVersion: "v1.7.0"
+home: https://github.com/tmforum-oda/oda-canvas
+sources:
+  - https://github.com/tmforum-oda/oda-canvas
+  - https://github.com/agentgateway/agentgateway
+maintainers:
+  - name: TM Forum ODA Team
+    email: oda@tmforum.org
+dependencies:
+  - name: agentgateway-standalone
+    version: v1.7.0
+    repository: oci://ghcr.io/agentgateway/charts

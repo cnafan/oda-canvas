@@ -72,6 +72,8 @@ noTests:
   - "source/operators/TMFOP011-Carbon-Management/**"
   - "charts/carbon-management-operator/**"
   - "charts/carbon-intensity-service/**"
+  # AI gateway: installed separately from the canvas-oda chart
+  - "charts/agentgateway/**"
   - "source/tmf-services/TMF628_Performance_Management/**"
   - "source/tmf-services/MCP_Resource_Inventory/**"
   - "charts/observability-stack/**"

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from auth.middleware import get_current_user, require_admin
+from auth.middleware import get_current_user, is_admin, require_admin
 from auth.models import AuthUser
 from k8s.resources.ai_gateways import (
     MAX_MCP_ARGUMENTS_BYTES,
@@ -16,6 +16,7 @@ from k8s.resources.ai_gateways import (
     get_ai_gateways_summary,
     read_mcp_resource,
     stream_model_test,
+    without_schema_values,
 )
 
 router = APIRouter(prefix="/api/ai-gateways", tags=["ai-gateways"])
@@ -46,8 +47,9 @@ class McpResourceReadRequest(BaseModel):
 
 
 @router.get("")
-def get_ai_gateways(_: AuthUser = Depends(get_current_user)):
-    return get_ai_gateways_summary()
+def get_ai_gateways(user: AuthUser = Depends(get_current_user)):
+    summary = get_ai_gateways_summary()
+    return summary if is_admin(user) else without_schema_values(summary)
 
 
 @router.post("/models/test")

@@ -157,11 +157,18 @@ backend:
     #     url: https://grafana.example.com
     #   - provider: prometheus
     #     url: https://prometheus.example.com
+  # OpenAN Registry Center backing the AI Registries > Agents section.
+  # Leave empty when OpenAN is not installed. Pair with secretEnv.REGISTRY_CENTER_TOKEN.
+  registryCenter:
+    url: ""
+    # Example:
+    # url: http://openan-registry-center-registry-center.components.svc.cluster.local:5000
   secretEnv:
     KEYCLOAK_ADMIN_CLIENT_SECRET: ""
     ENTRAID_CLIENT_SECRET: ""
     K8S_REMOTE_SA_TOKEN: ""
     K8S_REMOTE_CA_CERT: ""
+    REGISTRY_CENTER_TOKEN: ""
   podAnnotations: {}
   podLabels: {}
   resources: {}

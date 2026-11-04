@@ -36,7 +36,7 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 
 dayjs.extend(relativeTime)
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+export function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div
       style={{
@@ -596,7 +596,7 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
 // dependency.
 // ---------------------------------------------------------------------------
 
-function RawDocumentView({
+export function RawDocumentView({
   loading,
   error,
   data,

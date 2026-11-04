@@ -34,6 +34,16 @@ function getRouteMeta(pathname: string): RouteMeta {
   if (pathname.startsWith('/exposedapis')) {
     return { eyebrow: 'APIs', title: 'Exposed APIs', description: '' }
   }
+  if (pathname.startsWith('/registries')) {
+    return { eyebrow: 'AI', title: 'Registries', description: '' }
+  }
+  // Must stay above '/gateway', which is also a prefix of this path.
+  if (pathname.startsWith('/gateways')) {
+    return { eyebrow: 'AI', title: 'Gateways', description: '' }
+  }
+  if (pathname.startsWith('/high-value-scenarios')) {
+    return { eyebrow: 'AI', title: 'High Value Scenarios', description: '' }
+  }
   if (pathname.startsWith('/gateway')) {
     return { eyebrow: 'APIs', title: 'Gateway', description: '' }
   }

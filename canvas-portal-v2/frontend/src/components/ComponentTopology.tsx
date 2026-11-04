@@ -127,7 +127,7 @@ function getPrimaryInstance(instances: OdaComponent[]): OdaComponent | undefined
 // TM Forum-style domain colours used to fill the small hexagon badge on each
 // tile. Each domain has its own solid colour so the row stays scannable at a
 // glance, mirroring the public catalog at tmforum.org/oda/directory.
-interface DomainPaint {
+export interface DomainPaint {
   hexFill: string
   hexBorder: string
   badgeBg: string
@@ -169,7 +169,7 @@ function getDomainPaint(domainKey: string): DomainPaint {
 
 const HEX_CLIP = 'polygon(25% 2%, 75% 2%, 100% 50%, 75% 98%, 25% 98%, 0 50%)'
 
-function HexBadge({ paint, label }: { paint: DomainPaint; label: string }) {
+export function HexBadge({ paint, label }: { paint: DomainPaint; label: string }) {
   return (
     <div
       style={{

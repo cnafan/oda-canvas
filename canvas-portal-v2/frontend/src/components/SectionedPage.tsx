@@ -8,6 +8,8 @@ export interface PageSection {
   description: string
   /** Optional link to an existing page that already covers this section. */
   link?: { to: string; label: string }
+  /** Live content for the section. Without it, a placeholder is shown. */
+  content?: React.ReactNode
 }
 
 interface SectionedPageProps {
@@ -85,24 +87,26 @@ export default function SectionedPage({ title, description, icon, sections }: Se
             <p style={{ fontSize: 12, color: colors.textSecondary, margin: '0 0 14px', lineHeight: 1.55 }}>
               {section.description}
             </p>
-            <div
-              style={{
-                border: `1px dashed ${colors.border}`,
-                borderRadius: 10,
-                padding: 14,
-                background: colors.surfaceSubtle,
-                fontSize: 12,
-                color: colors.textMuted,
-              }}
-            >
-              Nothing to show yet.
-              {section.link && (
-                <>
-                  {' '}
-                  <Link to={section.link.to}>{section.link.label}</Link>
-                </>
-              )}
-            </div>
+            {section.content ?? (
+              <div
+                style={{
+                  border: `1px dashed ${colors.border}`,
+                  borderRadius: 10,
+                  padding: 14,
+                  background: colors.surfaceSubtle,
+                  fontSize: 12,
+                  color: colors.textMuted,
+                }}
+              >
+                Nothing to show yet.
+                {section.link && (
+                  <>
+                    {' '}
+                    <Link to={section.link.to}>{section.link.label}</Link>
+                  </>
+                )}
+              </div>
+            )}
           </section>
         ))}
       </div>

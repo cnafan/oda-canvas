@@ -53,6 +53,11 @@ class Settings(BaseSettings):
 
     ALLOWED_CHART_SOURCES_JSON: str = "[]"
 
+    # OpenAN Registry Center backing the AI Registries > Agents section. The
+    # token needs the nms_oss role to see every review state and health data.
+    REGISTRY_CENTER_URL: str = ""
+    REGISTRY_CENTER_TOKEN: str = ""
+
     @property
     def allowed_chart_sources(self) -> list[str]:
         import json

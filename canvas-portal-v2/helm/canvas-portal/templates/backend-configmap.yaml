@@ -30,6 +30,7 @@ data:
   CONFORMANCE_KEYCLOAK_BASE_URL: {{ default $keycloakBackendUrl (index $canvasBDDEnv "KEYCLOAK_BASE_URL") | quote }}
   CONFORMANCE_KEYCLOAK_REALM: {{ default .Values.backend.env.KEYCLOAK_REALM (index $canvasBDDEnv "KEYCLOAK_REALM") | quote }}
   OBSERVABILITY_PROVIDERS_JSON: {{ ((.Values.backend.observability).providers | default list) | toJson | quote }}
+  REGISTRY_CENTER_URL: {{ ((.Values.backend.registryCenter | default dict).url | default "") | quote }}
   # JSON-encoded list of namespaces the portal is allowed to install helm
   # releases into. Sourced from rbac.canvasInstallAccess.targetNamespaces so
   # the install UI matches the RoleBindings the chart actually creates.

@@ -150,6 +150,24 @@ Order of work:
 
 The frontend gets its runtime settings (`APP_API_BASE_URL`, `APP_KEYCLOAK_*`) from `config.js`, which the nginx entrypoint writes at container start. nginx proxies `/api/*` and the session endpoints to `BACKEND_UPSTREAM`, and Keycloak paths under `/auth/realms|resources|js|admin` to `KEYCLOAK_UPSTREAM`.
 
+## OpenAN Registry Center
+
+The Agents section of the Registries page reads from an OpenAN Registry Center through the backend. Set both values to enable it; otherwise the section reports that it is not configured.
+
+- `backend.registryCenter.url`: for example `http://openan-registry-center-registry-center.components.svc.cluster.local:5000`.
+- `backend.secretEnv.REGISTRY_CENTER_TOKEN`: a static Bearer token for a dedicated credential with the `nms_oss` role. Lesser roles get 403 on the management, health and review routes. The role can also write, but the portal only sends GET requests and never gives the token to the browser.
+
+An agent counts as active when its review status is `published`.
+
+## Backend tests
+
+From `backend/`:
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ## Local development against a cluster
 
 The backend only needs a Kubernetes API URL and a token, so you can run it on your machine against any cluster.

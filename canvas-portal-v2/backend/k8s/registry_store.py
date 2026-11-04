@@ -136,12 +136,30 @@ def add_source(metadata: dict, credentials: dict) -> None:
         _prune_credentials({source.get("id") for source in sources} | {metadata["id"]})
 
 
-def update_source(metadata: dict, credentials: Optional[dict]) -> Optional[dict]:
+def _destination(entry: dict) -> tuple:
+    return (
+        entry.get("url"),
+        entry.get("tokenUrl"),
+        entry.get("authType"),
+        entry.get("grantType"),
+        entry.get("skipTlsVerify") is True,
+    )
+
+
+def update_source(
+    metadata: dict,
+    credentials: Optional[dict],
+    expected: dict,
+    expected_credentials: Optional[dict],
+) -> Optional[dict]:
     """Replace a registry, keeping its id and creation time, and return the saved entry.
 
-    Pass credentials=None to leave the saved ones alone. New credentials are written
-    first and put back if the metadata write fails, because the other order could
-    send the old credentials to a new address. Returns None if the registry does not exist.
+    Pass credentials=None to leave the saved ones alone. The caller decided what may
+    be kept from expected and expected_credentials, so if another edit has changed
+    them since, this refuses rather than pair a credential with the wrong address.
+    New credentials are written first and put back if the metadata write fails,
+    because the other order could send the old credentials to a new address.
+    Returns None if the registry does not exist.
     """
     source_id = metadata["id"]
     with _lock:
@@ -152,6 +170,9 @@ def update_source(metadata: dict, credentials: Optional[dict]) -> Optional[dict]
         others = [source for source in sources if source.get("id") != source_id]
         if metadata["name"].lower() in {source.get("name", "").lower() for source in others}:
             raise CanvasPortalError(f"A registry named '{metadata['name']}' already exists", 409)
+
+        if _destination(current) != _destination(expected) or read_credentials().get(source_id) != expected_credentials:
+            raise CanvasPortalError("This registry was just changed by someone else. Reload the page and try again.", 409)
 
         previous = None
         if credentials is not None:

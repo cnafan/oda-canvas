@@ -55,13 +55,9 @@ const STATUS_LABELS: Record<RegistryStatus['status'], string> = {
 
 const isPlainHttp = (url: string) => /^\s*http:\/\//i.test(url)
 
-function sameOrigin(first: string, second: string) {
-  try {
-    return new URL(first.trim()).origin === new URL(second.trim()).origin
-  } catch {
-    return false
-  }
-}
+// Mirrors how the backend stores a registry URL: it accepts the host or the full API base.
+const normalizedRegistryUrl = (url: string) =>
+  url.trim().replace(/\/+$/, '').replace(/\/rest\/v1\/registry-center$/, '')
 
 const subtleButton = {
   background: 'transparent',
@@ -132,8 +128,9 @@ export default function RegistrySources() {
     needsCredentials &&
     editing.credentialsSet &&
     form.authType === editing.authType &&
-    sameOrigin(form.url, editing.url) &&
-    (!isOauth || (form.grantType === editing.grantType && sameOrigin(form.tokenUrl, editing.tokenUrl ?? '')))
+    normalizedRegistryUrl(form.url) === editing.url &&
+    (!form.skipTlsVerify || !!editing.skipTlsVerify) &&
+    (!isOauth || (form.grantType === editing.grantType && form.tokenUrl.trim() === editing.tokenUrl))
 
   const typedCredentials = [
     form.authType === 'token' && form.token,
@@ -304,7 +301,7 @@ export default function RegistrySources() {
               ? undefined
               : keepsCredentials
                 ? 'Leave the credential fields blank to keep the saved ones.'
-                : 'Enter the credentials again. Saved ones are kept only while the authentication type and the address\'s host and port stay the same.'
+                : 'Enter the credentials again. Saved ones are kept only while the authentication type and URLs stay the same and TLS verification stays on.'
           }
           style={{ marginBottom: 12 }}
         />

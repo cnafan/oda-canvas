@@ -475,12 +475,12 @@ def test_edit_changes_details_and_keeps_id_creation_time_and_credentials(secret)
     created = add()
     patches = len(secret.patches)
 
-    response = edit(created["id"], {"name": "Renamed", "url": f"{BASE}/other", "pageUrl": "https://p.example.com", "authType": "token", "skipTlsVerify": True})
+    response = edit(created["id"], {"name": "Renamed", "url": f"{BASE}{API}/", "pageUrl": "https://p.example.com", "authType": "token"})
 
     assert response.status_code == 200, response.text
     updated = response.json()
     assert (updated["id"], updated["createdAt"]) == (created["id"], created["createdAt"])
-    assert (updated["name"], updated["url"], updated["pageUrl"], updated["skipTlsVerify"]) == ("Renamed", f"{BASE}/other", "https://p.example.com", True)
+    assert (updated["name"], updated["url"], updated["pageUrl"]) == ("Renamed", BASE, "https://p.example.com")
     assert stored(secret, created["id"]) == {"token": SECRET}
     assert len(secret.patches) == patches, "unchanged credentials must not be rewritten"
     assert SECRET not in response.text
@@ -504,6 +504,8 @@ def test_edit_replaces_credentials_when_they_are_entered(secret):
     "changes",
     [
         {"url": "https://evil.example.com"},
+        {"url": f"{BASE}/other-service"},
+        {"skipTlsVerify": True},
         {"url": "http://registry.example.com", "allowInsecureHttp": True},
         {"url": "https://registry.example.com:8443"},
         {"url": "https://registry.example.com@evil.example.com"},
@@ -527,7 +529,9 @@ def test_saved_token_never_follows_a_changed_destination_on_save_or_test(secret,
     "changes",
     [
         {"tokenUrl": "https://evil.example.com/token"},
+        {"tokenUrl": "https://iam.example.com/other/token"},
         {"url": "https://evil.example.com"},
+        {"skipTlsVerify": True},
         {"grantType": "password"},
     ],
 )
@@ -544,7 +548,7 @@ def test_saved_oauth_secret_never_follows_a_changed_destination(secret, upstream
 def test_oauth_edit_with_the_same_destination_keeps_the_secret(secret):
     created = add({**EDIT_OAUTH_FORM, "scope": "read"})
 
-    response = edit(created["id"], {**blank_credentials(EDIT_OAUTH_FORM), "name": "Renamed", "tokenUrl": "https://iam.example.com/v2/token", "grantType": "client_credentials"})
+    response = edit(created["id"], {**blank_credentials(EDIT_OAUTH_FORM), "name": "Renamed", "grantType": "client_credentials"})
 
     assert response.status_code == 200, response.text
     assert stored(secret, created["id"]) == {"clientId": "client", "clientSecret": SECRET, "scope": "read"}
@@ -631,13 +635,77 @@ def test_edit_with_new_credentials_lifts_a_lockout_but_the_same_ones_do_not(secr
 def test_testing_edits_uses_the_form_values_without_saving(secret, upstream):
     created = add()
     calls = upstream(base=f"{BASE}/other")
-    form = {**blank_credentials(TOKEN_FORM), "url": f"{BASE}/other"}
+    form = {**TOKEN_FORM, "url": f"{BASE}/other", "token": "typed-token"}
 
     result = client.post(f"/api/registries/sources/{created['id']}/test", json=form).json()
 
     assert result["ok"] is True
-    assert calls[-1]["headers"]["Authorization"] == f"Bearer {SECRET}"
+    assert calls[-1]["headers"]["Authorization"] == "Bearer typed-token"
     assert client.get("/api/registries/sources").json()["sources"][0]["url"] == BASE
+
+
+def test_testing_edits_with_blank_credentials_uses_the_saved_ones(secret, upstream):
+    created = add()
+    calls = upstream()
+
+    result = client.post(f"/api/registries/sources/{created['id']}/test", json={**blank_credentials(TOKEN_FORM), "name": "Renamed"}).json()
+
+    assert result["ok"] is True
+    assert calls[-1]["headers"]["Authorization"] == f"Bearer {SECRET}"
+
+
+def test_turning_tls_verification_back_on_keeps_the_credentials(secret):
+    created = add({**TOKEN_FORM, "skipTlsVerify": True})
+
+    assert edit(created["id"], {**blank_credentials(TOKEN_FORM), "skipTlsVerify": True}).status_code == 200
+    updated = edit(created["id"], blank_credentials(TOKEN_FORM))
+
+    assert updated.status_code == 200
+    assert updated.json()["skipTlsVerify"] is False
+    assert stored(secret, created["id"]) == {"token": SECRET}
+
+
+@pytest.mark.parametrize(
+    "concurrent",
+    [
+        {"url": "https://other.example.com"},
+        {"skipTlsVerify": True},
+        {"authType": "none"},
+    ],
+)
+def test_save_is_refused_if_the_destination_changed_after_the_check(secret, monkeypatch, concurrent):
+    created = add()
+    real_find = registries._find_source
+
+    def find_then_lose_the_race(source_id):
+        found = real_find(source_id)
+        sources = registry_store.load_sources()
+        registry_store._write_sources([{**sources[0], **concurrent}])
+        return found
+
+    monkeypatch.setattr(registries, "_find_source", find_then_lose_the_race)
+    response = edit(created["id"], {**blank_credentials(TOKEN_FORM), "name": "Renamed"})
+
+    assert response.status_code == 409
+    assert registry_store.load_sources()[0]["name"] == "Partner"
+
+
+def test_save_keeping_credentials_cannot_pair_rotated_ones_with_the_old_address(secret, monkeypatch):
+    """The other admin rotated the token after this request read the saved one."""
+    created = add()
+    real_find = registries._find_source
+
+    def find_then_lose_the_race(source_id):
+        found = real_find(source_id)
+        secret.data[source_id] = base64.b64encode(json.dumps({"token": "rotated"}).encode()).decode()
+        return found
+
+    monkeypatch.setattr(registries, "_find_source", find_then_lose_the_race)
+    response = edit(created["id"], {**blank_credentials(TOKEN_FORM), "name": "Renamed"})
+
+    assert response.status_code == 409
+    assert stored(secret, created["id"]) == {"token": "rotated"}
+    assert registry_store.load_sources()[0]["name"] == "Partner"
 
 
 def test_testing_unchanged_edits_respects_the_saved_registrys_lockout(secret, upstream):

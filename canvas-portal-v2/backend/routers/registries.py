@@ -781,32 +781,35 @@ def _normalized_registry_url(url: str) -> str:
     return normalized[: -len(API_BASE)] if normalized.endswith(API_BASE) else normalized
 
 
-def _origin(url: Optional[str]) -> Optional[tuple]:
+def _same_destination(body: SourceInput, saved: Source) -> bool:
+    """Whether the form sends credentials exactly where, and as safely as, the saved registry does."""
+    if body.skipTlsVerify and not saved.skip_tls:
+        return False
     try:
-        parsed = httpx.URL((url or "").strip())
-    except (httpx.InvalidURL, TypeError):
-        return None
-    return (parsed.scheme, parsed.host, parsed.port) if parsed.host else None
+        if _normalized_registry_url(body.url) != saved.url:
+            return False
+        if body.authType != "oauth":
+            return True
+        return (
+            str(outbound.validate_url(body.tokenUrl or "")) == saved.token_url
+            and (body.grantType or "client_credentials") == saved.grant_type
+        )
+    except (CanvasPortalError, outbound.InvalidUrl):
+        return False
 
 
 def _with_saved_credentials(body: SourceInput, saved: Source) -> SourceInput:
     """Fill in the saved credentials when an edit leaves every credential field blank.
 
-    Admins can't read saved credentials, so changing where they go must require
-    retyping them: otherwise pointing a registry at another host would reveal them.
+    Admins can't read saved credentials, so changing where they go, even to another
+    path on a gateway that routes by path, or no longer checking who receives them,
+    must require retyping them. Otherwise such an edit could reveal them.
     """
     if saved.credentials is None or body.authType != saved.auth_type:
         return body
     if any(_text(value) for value in (body.token, body.username, body.password, body.clientId, body.clientSecret, body.scope)):
         return body
-    same_destination = _origin(body.url) == _origin(saved.url)
-    if body.authType == "oauth":
-        same_destination = (
-            same_destination
-            and _origin(body.tokenUrl) == _origin(saved.token_url)
-            and (body.grantType or "client_credentials") == saved.grant_type
-        )
-    if not same_destination:
+    if not _same_destination(body, saved):
         return body
     return body.model_copy(
         update={
@@ -914,7 +917,9 @@ def update_source(source_id: str, body: SourceInput, user: AuthUser = Depends(re
     source = _source_from_input(body, source_id, saved)
     page_url = _page_url(body.pageUrl)
     credentials = None if source.credentials == saved.credentials else source.credentials or {}
-    updated = registry_store.update_source(_source_metadata(source, page_url), credentials)
+    updated = registry_store.update_source(
+        _source_metadata(source, page_url), credentials, _source_metadata(saved, None), saved.credentials
+    )
     if updated is None:
         raise CanvasPortalError(f"Registry '{source_id}' not found", 404)
     # Saving unchanged credentials must not lift a lockout, or edits could get around the registry's ban.

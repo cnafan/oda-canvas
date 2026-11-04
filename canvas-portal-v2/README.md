@@ -178,7 +178,7 @@ Each registry takes a URL, an optional **Registry page** and one of these creden
 
 To add a Registry Center behind an OpenAN Portal, use the portal's gateway path, `http://<portal-host>/api/registry-center`. The portal's own page URLs, such as `/registry`, return a web page, and the connection test suggests this path when it sees one.
 
-To change a registry, use **Edit** on its card. The in-cluster registry can't be edited here because the chart configures it. The credential fields start blank; leave them blank to keep the saved credentials. Saved credentials are kept only while the authentication type, the OAuth grant type, and the scheme, host and port of the registry URL and token URL stay the same. Otherwise they must be entered again, so that an edit can't send them to a different server. **Test Connection** follows the same rule and tests the edited values before they are saved.
+To change a registry, use **Edit** on its card. The in-cluster registry can't be edited here because the chart configures it. The credential fields start blank; leave them blank to keep the saved credentials. Saved credentials are kept only if the authentication type, the OAuth grant type, the registry URL and the token URL all stay the same, including the path, and **Skip TLS verification** isn't newly turned on. Otherwise they must be entered again, so that an edit can't send them to a different server or service. If another admin changes the registry during a save, the save is refused and must be retried. **Test Connection** follows the same rule and tests the edited values before they are saved.
 
 Things to know when operating this:
 

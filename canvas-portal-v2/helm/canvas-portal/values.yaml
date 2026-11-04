@@ -21,6 +21,11 @@ rbac:
     targetNamespaces:
       - components
     createNamespaces: false
+  registryCredentials:
+    # Creates the Secret that holds external registry credentials, and lets the
+    # backend ServiceAccount read and patch that one Secret. Disabling it turns
+    # off adding external registries from the portal.
+    enabled: true
   canvasConformanceAccess:
     enabled: true
     targetNamespaces:

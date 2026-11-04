@@ -17,6 +17,7 @@ A web management portal for an ODA Canvas. It is the successor to the Spring Boo
 - **Helm:** manage chart repositories, then install, uninstall and view history and values for releases. Installs are limited to configured namespaces and, optionally, allowed chart sources.
 - **Conformance:** run the Canvas BDD tests from the repo, view logs, and download the cucumber and HTML reports.
 - **Model gateway:** create, edit and delete `ModelGatewayService` resources, and proxy chat requests through them.
+- **Registries:** list agents and skills from the in-cluster OpenAN Registry Center and from external registries added by admins.
 - **Cluster overview and observability:** a cluster summary, plus Grafana and Prometheus links if configured.
 - **Authentication:** Keycloak or Entra ID (`IDM_PROVIDER`). The backend validates the JWT and the browser keeps a refresh cookie.
 
@@ -160,6 +161,28 @@ The Agents section of the Registries page reads from an OpenAN Registry Center t
 An agent counts as active when its review status is `published`.
 
 What users see depends on `backend.auth.adminGroups`. Admins see every agent in any review status, plus health data and review history. Other logged-in users see published agents only, without health data or review history, which matches what the registry's own discovery routes expose. The backend enforces this.
+
+### External registries
+
+Admins can add Registry Centers running outside the cluster from the External Registries card on the Registries page. Their agents appear in the Agents section. The Skills section lists the skills declared in the agent cards of every registry, because no registry has a separate skills API.
+
+Each registry takes a URL and one of these credentials:
+
+| Option | Sent as | Notes |
+| --- | --- | --- |
+| Token | `Authorization: Bearer` | What Registry Center accepts directly. Without the `nms_oss` role, only published agents are listed. |
+| Username and password | `Authorization: Basic` | Registry Center rejects Basic, so this only works through a proxy or another service that accepts it. |
+| OAuth token URL | Bearer token issued by your IAM | Uses the client credentials or password grant. The portal requests and renews the token. |
+
+Things to know when operating this:
+
+- **Storage.** Names and URLs are saved in `external-registries.json` on the backend volume, so they are lost on restart if `backend.persistence.enabled` is false. Credentials are saved in the `*-backend-registry-credentials` Secret in the release namespace, and the backend can only read and patch that one Secret. Credentials are never returned to the browser; to change one, remove the registry and add it again.
+- **Helm.** The chart creates that Secret with no data, and `helm upgrade` keeps the keys the backend adds. `helm upgrade --force` and `helm uninstall` delete them, after which affected registries show that their credentials are missing. Set `rbac.registryCredentials.enabled: false` to turn off saving external registries.
+- **Addresses.** The backend refuses loopback, link-local and `*.svc`/`cluster.local` addresses, and does not follow redirects. Private ranges stay allowed because external registries are often on them, so a literal in-cluster IP address can't be blocked. Only admins can add a URL.
+- **TLS.** Certificates are verified unless **Skip TLS verification** is ticked for that registry. An `http://` URL must be confirmed, since the credentials would travel unencrypted.
+- **Lockouts.** Registry Center bans a client for 5 minutes after 5 failed logins. After a rejection, the portal stops calling that registry for 5 minutes, including for connection tests. To retry sooner with new credentials, remove the registry and add it again.
+- **Freshness.** Results from external registries are cached for 30 seconds. **Refresh** skips the cache for admins only. A registry that fails or doesn't answer within about 6 seconds shows as a warning without affecting the others.
+- **Limits.** Each call to an external registry has a 5-second overall limit and a 10 MB response limit. Compressed responses are refused.
 
 ## Backend tests
 

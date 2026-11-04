@@ -108,12 +108,21 @@ const reviewColumns: ColumnsType<ReviewTransition> = [
   { title: 'Operator', dataIndex: 'operator', render: (value?: string) => value || '—' },
 ]
 
-export default function AgentDetailBody({ organization, name }: { organization: string; name: string }) {
+export default function AgentDetailBody({
+  organization,
+  name,
+  registryId,
+}: {
+  organization: string
+  name: string
+  /** Omitted for the in-cluster registry. */
+  registryId?: string
+}) {
   const [rawFormat, setRawFormat] = useState<'yaml' | 'json'>('yaml')
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['registry-agent', organization, name],
-    queryFn: () => fetchAgent(organization, name),
+    queryKey: ['registry-agent', registryId ?? null, organization, name],
+    queryFn: () => fetchAgent(organization, name, registryId),
   })
 
   if (isLoading) {
@@ -127,7 +136,7 @@ export default function AgentDetailBody({ organization, name }: { organization: 
     return <Alert type="error" showIcon message="Failed to load agent" description={registryErrorMessage(error)} />
   }
 
-  const { card, publishStatus, health, heartbeatEnabled, layer, review, fullAccess } = data
+  const { card, publishStatus, health, heartbeatEnabled, layer, review, fullAccess, registry } = data
   const capabilities = card.capabilities ?? {}
   const securitySchemes = Object.keys(card.securitySchemes ?? {})
   const history = review?.history ?? []
@@ -138,6 +147,7 @@ export default function AgentDetailBody({ organization, name }: { organization: 
       label: <span><AppstoreOutlined style={{ marginRight: 6 }} />Overview</span>,
       children: (
         <Card style={cardStyle}>
+          {registry && <InfoRow label="Registry" value={registry.name} />}
           <InfoRow label="Organization" value={card.provider?.organization ?? '—'} />
           <InfoRow label="Provider URL" value={<ExternalLink href={card.provider?.url} />} />
           <InfoRow label="Description" value={card.description ?? '—'} />

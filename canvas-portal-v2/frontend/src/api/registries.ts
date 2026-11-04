@@ -1,3 +1,4 @@
+import { useQuery, type QueryClient } from '@tanstack/react-query'
 import apiClient from './client'
 
 // Registry Center cards are serialized with protobuf MessageToDict, which drops
@@ -49,9 +50,25 @@ export interface AgentHealth {
   status_changed_at?: string
 }
 
+export interface RegistryRef {
+  id: string
+  name: string
+  /** True for the in-cluster registry configured through the chart. */
+  builtin: boolean
+}
+
 export interface AgentListItem extends AgentCard {
   publishStatus?: string
   health?: AgentHealth | null
+  registry?: RegistryRef
+}
+
+export interface RegistryStatus extends RegistryRef {
+  status: 'ok' | 'error' | 'credentials_missing'
+  agentCount: number
+  /** False when only published agents could be read from this registry. */
+  fullAccess: boolean
+  message?: string | null
 }
 
 export interface AgentList {
@@ -60,6 +77,9 @@ export interface AgentList {
   heartbeatEnabled: boolean
   /** False for non-admins, who only receive published agents. */
   fullAccess: boolean
+  registries?: RegistryStatus[]
+  /** Set when saved external registries could not be read. */
+  storeError?: string | null
 }
 
 export interface ReviewTransition {
@@ -78,17 +98,124 @@ export interface AgentDetail {
   layer?: string | null
   review?: { status?: string; history?: ReviewTransition[] } | null
   fullAccess: boolean
+  registry?: RegistryRef
 }
 
-export async function fetchAgents(): Promise<AgentList> {
-  const { data } = await apiClient.get<AgentList>('/api/registries/agents')
+export type AuthType = 'token' | 'basic' | 'oauth'
+export type GrantType = 'client_credentials' | 'password'
+
+export interface RegistrySource {
+  id: string
+  name: string
+  url: string
+  authType: AuthType
+  grantType?: GrantType | null
+  tokenUrl?: string | null
+  skipTlsVerify?: boolean
+  credentialsSet: boolean
+  builtin: boolean
+}
+
+export interface RegistrySourceList {
+  canManage: boolean
+  /** Why external registries can't be saved or read right now. */
+  storeError: string | null
+  sources: RegistrySource[]
+}
+
+export interface RegistrySourceInput {
+  name: string
+  url: string
+  authType: AuthType
+  skipTlsVerify: boolean
+  allowInsecureHttp: boolean
+  token?: string
+  username?: string
+  password?: string
+  tokenUrl?: string
+  grantType?: GrantType
+  clientId?: string
+  clientSecret?: string
+  scope?: string
+}
+
+export interface ConnectionTestResult {
+  ok: boolean
+  classification: string
+  message: string
+  /** 'admin' can read every review state; 'discovery' only published agents. */
+  level: 'admin' | 'discovery' | null
+  agentCount: number | null
+  warnings: string[]
+}
+
+/** Pass refresh to skip the backend's short cache of external registry results. */
+export async function fetchAgents(refresh = false): Promise<AgentList> {
+  const { data } = await apiClient.get<AgentList>('/api/registries/agents', {
+    params: refresh ? { refresh: true } : undefined,
+  })
   return data
 }
 
-export async function fetchAgent(organization: string, name: string): Promise<AgentDetail> {
-  const { data } = await apiClient.get<AgentDetail>(
-    `/api/registries/agents/${encodeURIComponent(organization)}/${encodeURIComponent(name)}`
-  )
+const AGENTS_KEY = ['registry-agents']
+const SOURCES_KEY = ['registry-sources']
+
+/** The agent list, shared by the Agents, Skills and External Registries sections. */
+export function useAgents() {
+  return useQuery({ queryKey: AGENTS_KEY, queryFn: () => fetchAgents() })
+}
+
+export function useRegistrySources() {
+  return useQuery({ queryKey: SOURCES_KEY, queryFn: fetchRegistrySources })
+}
+
+/**
+ * Reload the shared agent list, skipping both the backend's cache and React
+ * Query's: without staleTime 0, fetchQuery can return cached data with no request.
+ * A failure is left for the query's error state to show.
+ */
+export function refreshAgents(queryClient: QueryClient) {
+  return queryClient
+    .fetchQuery({ queryKey: AGENTS_KEY, queryFn: () => fetchAgents(true), staleTime: 0 })
+    .catch(() => undefined)
+}
+
+export async function fetchAgent(organization: string, name: string, registryId?: string): Promise<AgentDetail> {
+  const agentPath = `${encodeURIComponent(organization)}/${encodeURIComponent(name)}`
+  const path = registryId ? `${encodeURIComponent(registryId)}/${agentPath}` : agentPath
+  const { data } = await apiClient.get<AgentDetail>(`/api/registries/agents/${path}`)
+  return data
+}
+
+/** The page URL of an agent. In-cluster agents keep their original, shorter URL. */
+export function agentPagePath(agent: AgentListItem): string {
+  const agentPath = `${encodeURIComponent(agent.provider?.organization ?? '')}/${encodeURIComponent(agent.name)}`
+  return agent.registry && !agent.registry.builtin
+    ? `/registries/agents/${encodeURIComponent(agent.registry.id)}/${agentPath}`
+    : `/registries/agents/${agentPath}`
+}
+
+export async function fetchRegistrySources(): Promise<RegistrySourceList> {
+  const { data } = await apiClient.get<RegistrySourceList>('/api/registries/sources')
+  return data
+}
+
+export async function addRegistrySource(input: RegistrySourceInput): Promise<RegistrySource> {
+  const { data } = await apiClient.post<RegistrySource>('/api/registries/sources', input)
+  return data
+}
+
+export async function removeRegistrySource(id: string): Promise<void> {
+  await apiClient.delete(`/api/registries/sources/${encodeURIComponent(id)}`)
+}
+
+export async function testRegistryConnection(input: RegistrySourceInput): Promise<ConnectionTestResult> {
+  const { data } = await apiClient.post<ConnectionTestResult>('/api/registries/sources/test', input)
+  return data
+}
+
+export async function testSavedRegistry(id: string): Promise<ConnectionTestResult> {
+  const { data } = await apiClient.post<ConnectionTestResult>(`/api/registries/sources/${encodeURIComponent(id)}/test`)
   return data
 }
 

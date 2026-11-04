@@ -18,6 +18,7 @@ API = "/rest/v1/registry-center"
 REGISTERED = {"name": "A b", "provider": {"organization": "org"}, "publishStatus": "registered"}
 PUBLISHED = {"name": "B", "provider": {"organization": "org"}, "publishStatus": "published"}
 MANAGE = (200, {"agentCards": [REGISTERED, PUBLISHED], "statusCounts": {"registered": 1, "published": 1}})
+DISCOVERY = (200, {"agentCards": [{"name": "B", "provider": {"organization": "org"}}]})
 HEALTH = (
     200,
     {"agents": [{"name": "B", "organization": "org", "health_status": "healthy"}], "config": {"enabled": True}},
@@ -53,7 +54,7 @@ def upstream(monkeypatch):
     """Serve a {path: (status, json) | Exception} map in place of the registry; returns the calls made."""
 
     def install(routes=None):
-        table = {"/agent-cards/manage": MANAGE, "/agents/health": HEALTH, **(routes or {})}
+        table = {"/agent-cards/manage": MANAGE, "/agent-cards": DISCOVERY, "/agents/health": HEALTH, **(routes or {})}
         calls = []
 
         def fake_get(url, params=None, headers=None, timeout=None):
@@ -194,11 +195,25 @@ def test_non_admin_list_has_only_published_agents_and_no_health(upstream):
     assert not [call for call in calls if "agents/health" in call["url"]]
 
 
-def test_non_admin_list_withholds_cards_without_a_status(upstream):
-    upstream({"/agent-cards/manage": (200, {"agentCards": [{"name": "C", "provider": {"organization": "org"}}]})})
+def test_non_admin_is_served_only_from_public_discovery(upstream):
+    calls = upstream(
+        {"/agent-cards/manage": (200, {"agentCards": [{**PUBLISHED, "adminOnly": "secret"}]})}
+    )
+    act_as(VIEWER)
+
+    response = client.get("/api/registries/agents")
+
+    assert "secret" not in response.text
+    assert response.json()["agents"][0]["publishStatus"] == "published"
+    assert [call["url"].split(API, 1)[1] for call in calls] == ["/agent-cards"]
+
+
+def test_non_admin_does_not_see_a_published_agent_discovery_hides(upstream):
+    upstream({"/agent-cards": (200, {"agentCards": []})})
     act_as(VIEWER)
 
     assert client.get("/api/registries/agents").json()["agents"] == []
+    assert client.get("/api/registries/agents/org/B").status_code == 404
 
 
 def test_non_admin_cannot_tell_an_unpublished_agent_from_a_missing_one(upstream):

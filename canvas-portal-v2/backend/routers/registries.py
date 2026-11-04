@@ -81,19 +81,19 @@ def _list_agents(full_access: bool) -> dict:
     """List agents for the caller's role.
 
     The upstream token can read admin-only data, so the role is enforced here.
-    Non-admins get what the registry's public discovery exposes: published cards,
-    with no health data. Anything not explicitly published is withheld.
+    Non-admins are served only from the registry's public discovery route, which
+    applies its own visibility rules; the management route is never read for them.
     """
-    body = _registry_get("/agent-cards/manage")
-    cards = body.get("agentCards") or []
     if not full_access:
-        published = [card for card in cards if card.get("publishStatus") == "published"]
+        discovered = _registry_get("/agent-cards").get("agentCards") or []
         return {
-            "agents": [{**card, "health": None} for card in published],
-            "statusCounts": {"published": len(published)},
+            "agents": [{**card, "publishStatus": "published", "health": None} for card in discovered],
+            "statusCounts": {"published": len(discovered)},
             "heartbeatEnabled": False,
             "fullAccess": False,
         }
+    body = _registry_get("/agent-cards/manage")
+    cards = body.get("agentCards") or []
     health, heartbeat_enabled = _health_index()
     agents = [
         {**card, "health": health.get(((card.get("provider") or {}).get("organization"), card.get("name")))}

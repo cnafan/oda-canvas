@@ -38,16 +38,14 @@ def is_admin(user: AuthUser) -> bool:
 
 
 async def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
+    if is_admin(user):
+        return user
     required = _admin_groups()
     if not required:
-        if get_settings().AUTHZ_ALLOW_ALL_AUTHENTICATED:
-            return user
         logger.error("AUTHZ_ADMIN_GROUPS is not configured; denying admin route access to user=%s", user.username)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access is not configured.")
-    if required.isdisjoint(_normalize_group(g) for g in user.groups):
-        logger.warning("Access denied: user=%s is not in any of the groups %s", user.username, sorted(required))
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to perform this action.",
-        )
-    return user
+    logger.warning("Access denied: user=%s is not in any of the groups %s", user.username, sorted(required))
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You do not have permission to perform this action.",
+    )

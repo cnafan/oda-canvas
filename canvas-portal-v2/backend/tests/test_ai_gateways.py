@@ -1,10 +1,14 @@
 import asyncio
+import base64
 import json
+import threading
 import time
 from pathlib import Path
 
 import httpx
 import pytest
+
+from fastapi.responses import JSONResponse
 
 from config import get_settings
 from k8s.resources import ai_gateways
@@ -247,7 +251,9 @@ def test_summary_ok_sends_the_key_and_includes_runtime_and_discovery():
     assert seen[0] == "Bearer test-key"
     assert summary["runtime"] == {"synchronized": False}
     assert "hunter2" not in json.dumps(summary)
-    assert summary["discovered"]["tools"] == [{"name": "echo", "description": "Echo"}]
+    tool = summary["discovered"]["tools"][0]
+    assert (tool["name"], tool["description"]) == ("echo", "Echo")
+    assert "secret" not in tool["inputSchema"]
     assert summary["discovered"]["resources"][0]["uri"] == "canvas://about"
     assert "test-key" not in json.dumps(summary)
 
@@ -595,7 +601,7 @@ def test_model_that_is_not_active_is_refused(llm_settings, model):
         calls.append(str(request.url))
         return httpx.Response(200, json=_config_with_models(active=["good"], rejected=["rejected-model"]))
 
-    with pytest.raises(ai_gateways.ModelTestRefused) as refused:
+    with pytest.raises(ai_gateways.GatewayRequestRefused) as refused:
         _check_model(model, handler)
     assert refused.value.status_code == 404
     assert calls == ["http://gateway:8081/config_dump"]
@@ -606,7 +612,7 @@ def test_model_that_is_not_active_is_refused(llm_settings, model):
     [httpx.Response(401), httpx.Response(500), httpx.Response(200, text="not json")],
 )
 def test_unreadable_config_refuses_the_test(llm_settings, response):
-    with pytest.raises(ai_gateways.ModelTestRefused) as refused:
+    with pytest.raises(ai_gateways.GatewayRequestRefused) as refused:
         _check_model("good", lambda request: response)
     assert refused.value.status_code == 502
 
@@ -617,6 +623,521 @@ def test_model_test_needs_its_urls_configured(monkeypatch):
         "get_settings",
         lambda: type("Settings", (), {"AGENTGATEWAY_CONFIG_URL": "http://gateway", "AGENTGATEWAY_LLM_URL": ""}),
     )
-    with pytest.raises(ai_gateways.ModelTestRefused) as refused:
+    with pytest.raises(ai_gateways.GatewayRequestRefused) as refused:
         _check_model("good", lambda request: httpx.Response(200))
     assert refused.value.status_code == 503
+
+
+def test_input_schema_keeps_fields_with_secret_like_names():
+    schema = {
+        "type": "object",
+        "required": ["password"],
+        "properties": {
+            "password": {"type": "string", "default": "hunter2", "description": "Bearer abcdefghijklmnopqrstuvwx"},
+            "count": {"type": "integer", "minimum": 1, "default": 2},
+            "mode": {"anyOf": [{"enum": ["a", "b"]}, {"type": "null"}]},
+        },
+        "x-internal": "drop me",
+    }
+
+    filtered = ai_gateways._input_schema(schema)
+
+    assert filtered["required"] == ["password"]
+    assert filtered["properties"]["password"]["type"] == "string"
+    assert filtered["properties"]["count"] == {"type": "integer", "minimum": 1, "default": 2}
+    assert filtered["properties"]["mode"]["anyOf"][0] == {"enum": ["a", "b"]}
+    text = json.dumps(filtered)
+    assert "hunter2" not in text and "abcdefghijklmnop" not in text and "drop me" not in text
+
+
+def test_secret_fields_lose_defaults_and_choices_at_every_level():
+    schema = {"properties": {
+        "api_key": {"anyOf": [{"type": "string", "default": "prod-key-123"}, {"enum": ["prod-key-456"]}]},
+        "settings": {"properties": {"token": {"oneOf": [{"type": "string", "default": "prod-key-789"}]}}},
+    }}
+
+    filtered = ai_gateways._input_schema(schema)
+
+    assert "prod-key" not in json.dumps(filtered)
+    assert filtered["properties"]["api_key"]["anyOf"][0] == {"type": "string"}
+
+
+def test_input_schema_gives_up_on_oversized_and_invalid_schemas():
+    huge = {"properties": {f"field{i}": {"title": "x" * 200} for i in range(1000)}}
+
+    assert ai_gateways._input_schema(huge) is None
+    assert ai_gateways._input_schema("not a schema") is None
+
+
+def test_input_schema_stops_at_the_depth_limit():
+    schema = current = {}
+    for _ in range(500):
+        current["properties"] = {"next": {}}
+        current = current["properties"]["next"]
+
+    assert ai_gateways._input_schema(schema) is not None
+
+
+def test_discovery_survives_a_deeply_nested_response():
+    def handler(request):
+        if request.url.path != "/mcp":
+            return gateway(request)
+        return streamed("[" * 200_000 + "]" * 200_000)
+
+    summary = get_ai_gateways_summary(client_for(handler))
+
+    assert summary["state"] == "ok"
+    assert summary["discovered"] is None
+
+
+@pytest.mark.parametrize("value", ["NaN", "-Infinity", "1e999", '"\\ud83d"'])
+def test_values_the_browser_cant_receive_dont_break_the_page(value):
+    body = '{"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"x","inputSchema":{"properties":{"a":{"default":%s}}}}]}}'
+
+    def handler(request):
+        return gateway(request) if request.url.path != "/mcp" else streamed(body % value)
+
+    summary = get_ai_gateways_summary(client_for(handler))
+
+    assert summary["state"] == "ok"
+    assert summary["discovered"] is None
+    JSONResponse(summary)
+
+
+def test_tool_annotations_are_filtered():
+    annotations = {"readOnlyHint": True, "destructiveHint": "yes", "title": "Add", "other": 1}
+
+    assert ai_gateways._tool_annotations(annotations) == {"readOnlyHint": True, "title": "Add"}
+
+
+def mcp_server(handlers=None, session_id=None, sse=True):
+    """A fake MCP server that records each request, with responses per method."""
+    seen = []
+    responses = {
+        "initialize": {"result": {"protocolVersion": "2025-06-18"}},
+        "tools/list": {"result": {"tools": [{"name": "add"}]}},
+        "resources/list": {"result": {"resources": [{"name": "about", "uri": "canvas://about"}]}},
+        "tools/call": {"result": {"content": [{"type": "text", "text": "3"}], "isError": False}},
+        "resources/read": {"result": {"contents": [{"uri": "canvas://about", "text": "hello"}]}},
+        **(handlers or {}),
+    }
+
+    def handler(request):
+        seen.append(request)
+        if request.method == "DELETE":
+            return httpx.Response(200)
+        payload = json.loads(request.content)
+        if "id" not in payload:
+            return httpx.Response(202, stream=httpx.ByteStream(b""))
+        answer = responses[payload["method"]]
+        if isinstance(answer, httpx.Response):
+            return answer
+        message = json.dumps({"jsonrpc": "2.0", "id": payload["id"], **answer})
+        headers = {"mcp-session-id": session_id} if session_id else {}
+        if sse:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream", **headers},
+                stream=httpx.ByteStream(f"event: message\ndata: {message}\n\n".encode()),
+            )
+        return httpx.Response(
+            200, headers={"content-type": "application/json", **headers}, stream=httpx.ByteStream(message.encode())
+        )
+
+    return client_for(handler), seen
+
+
+def _methods(seen):
+    return [json.loads(r.content)["method"] for r in seen if r.method == "POST"]
+
+
+def test_tool_call_does_the_handshake_and_records_every_exchange():
+    client, seen = mcp_server()
+
+    outcome = ai_gateways.call_mcp_tool("add", {"a": 1, "b": 2}, client)
+
+    assert _methods(seen) == ["initialize", "notifications/initialized", "tools/list", "tools/call"]
+    assert [e["method"] for e in outcome["exchanges"]] == _methods(seen)
+    assert outcome["error"] is None
+    final = outcome["exchanges"][-1]
+    assert final["request"]["params"] == {"name": "add", "arguments": {"a": 1, "b": 2}}
+    assert json.loads(seen[-1].content) == final["request"]
+    assert final["response"]["result"]["content"][0]["text"] == "3"
+    assert seen[-1].headers["mcp-protocol-version"] == "2025-06-18"
+    assert not any(r.method == "DELETE" for r in seen)
+
+
+def test_stateful_session_is_carried_and_closed():
+    client, seen = mcp_server(session_id="session-1")
+
+    ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert "mcp-session-id" not in seen[0].headers
+    assert seen[-2].headers["mcp-session-id"] == "session-1"
+    assert seen[-1].method == "DELETE"
+    assert seen[-1].headers["mcp-session-id"] == "session-1"
+
+
+def test_tool_that_is_not_listed_is_refused_without_a_call():
+    client, seen = mcp_server()
+
+    with pytest.raises(ai_gateways.GatewayRequestRefused) as refused:
+        ai_gateways.call_mcp_tool("delete_everything", {}, client)
+
+    assert refused.value.status_code == 404
+    assert "tools/call" not in _methods(seen)
+
+
+def test_resource_that_is_not_listed_is_refused_without_a_read():
+    client, seen = mcp_server()
+
+    with pytest.raises(ai_gateways.GatewayRequestRefused) as refused:
+        ai_gateways.read_mcp_resource("file:///etc/passwd", client)
+
+    assert refused.value.status_code == 404
+    assert "resources/read" not in _methods(seen)
+
+
+def test_a_masked_name_on_the_page_calls_the_raw_upstream_name():
+    raw = "http://user:hunter2@host/resource"
+    client, seen = mcp_server({"resources/list": {"result": {"resources": [{"uri": raw}]}}})
+    displayed = ai_gateways._mcp_text(raw)
+    assert displayed != raw
+
+    ai_gateways.read_mcp_resource(displayed, client)
+
+    assert json.loads(seen[-1].content)["params"]["uri"] == raw
+
+
+def test_tool_error_result_is_returned_for_the_page_to_show():
+    client, _ = mcp_server({"tools/call": {"result": {"content": [{"type": "text", "text": "boom"}], "isError": True}}})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] is None
+    assert outcome["exchanges"][-1]["response"]["result"]["isError"] is True
+
+
+def test_json_rpc_error_is_returned_for_the_page_to_show():
+    client, _ = mcp_server({"tools/call": {"error": {"code": -32602, "message": "Bad arguments"}}})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["exchanges"][-1]["response"]["error"]["message"] == "Bad arguments"
+
+
+def test_notification_before_the_response_is_skipped():
+    note = json.dumps({"jsonrpc": "2.0", "method": "notifications/progress", "params": {"progress": 1}})
+    answer = json.dumps({"jsonrpc": "2.0", "id": 3, "result": {"content": []}})
+    stream = httpx.Response(
+        200,
+        headers={"content-type": "text/event-stream"},
+        stream=httpx.ByteStream(f"data: {note}\n\ndata: {answer}\n\n".encode()),
+    )
+    client, _ = mcp_server({"tools/call": stream})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["exchanges"][-1]["response"]["result"] == {"content": []}
+
+
+def test_http_failure_hides_the_body_and_keeps_the_exchanges():
+    client, _ = mcp_server({"tools/call": httpx.Response(502, stream=httpx.ByteStream(b"upstream 10.0.0.5 failed"))})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] == "The MCP endpoint returned HTTP 502."
+    assert outcome["exchanges"][-1]["status"] == 502
+    assert "10.0.0.5" not in json.dumps(outcome)
+
+
+def test_refused_initialize_stops_the_call():
+    client, seen = mcp_server({"initialize": {"error": {"code": -32600, "message": "no"}}})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] == "The MCP endpoint refused to start a session."
+    assert _methods(seen) == ["initialize"]
+
+
+def test_connection_failure_is_reported_without_details():
+    def handler(request):
+        raise httpx.ConnectError("cannot reach 10.0.0.5")
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client_for(handler))
+
+    assert outcome["error"] == "Request failed: ConnectError."
+    assert "10.0.0.5" not in json.dumps(outcome)
+
+
+def test_oversized_result_is_refused(monkeypatch):
+    monkeypatch.setattr(ai_gateways, "MAX_MCP_RESPONSE_BYTES", 400)
+    big = {"result": {"content": [{"type": "text", "text": "x" * 1000}]}}
+    client, _ = mcp_server({"tools/call": big})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] == "The MCP endpoint sent a response that can't be used."
+
+
+@pytest.mark.parametrize("value", ["NaN", "1e999", '"\\ud83d"'])
+def test_result_the_browser_cant_receive_is_reported(value):
+    body = '{"jsonrpc":"2.0","id":3,"result":{"x":%s}}' % value
+    client, _ = mcp_server({"tools/call": httpx.Response(
+        200, headers={"content-type": "application/json"}, stream=httpx.ByteStream(body.encode())
+    )})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] == "The MCP endpoint sent a response that can't be used."
+    assert [e["method"] for e in outcome["exchanges"]][-1] == "tools/call"
+    JSONResponse(outcome)
+
+
+def test_line_separators_inside_a_stream_stay_in_the_text():
+    answer = json.dumps({"jsonrpc": "2.0", "id": 3, "result": {"text": "a\u2028b\x85c"}}, ensure_ascii=False)
+    client, _ = mcp_server({"tools/call": httpx.Response(
+        200, headers={"content-type": "text/event-stream"}, stream=httpx.ByteStream(f"data: {answer}\r\n\r\n".encode())
+    )})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] is None
+    assert outcome["exchanges"][-1]["response"]["result"]["text"] == "a\u2028b\x85c"
+
+
+def test_closing_a_session_never_reads_its_response():
+    def body():
+        raise AssertionError("The DELETE body was read")
+        yield b""
+
+    class Unread(httpx.SyncByteStream):
+        def __iter__(self):
+            return body()
+
+    seen = []
+
+    def handler(request):
+        seen.append(request.method)
+        if request.method == "DELETE":
+            return httpx.Response(200, stream=Unread())
+        payload = json.loads(request.content)
+        if "id" not in payload:
+            return httpx.Response(202, stream=httpx.ByteStream(b""))
+        result = {"tools": [{"name": "add"}]} if payload["method"] == "tools/list" else {}
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json", "mcp-session-id": "s"},
+            stream=httpx.ByteStream(json.dumps({"id": payload["id"], "result": result}).encode()),
+        )
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client_for(handler))
+
+    assert outcome["error"] is None
+    assert seen[-1] == "DELETE"
+
+
+def test_session_stops_when_its_time_budget_runs_out(monkeypatch):
+    monkeypatch.setattr(ai_gateways, "MCP_CALL_DEADLINE_SECONDS", -1)
+    client, seen = mcp_server()
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] == "The MCP endpoint took too long to respond."
+    assert seen == []
+
+
+def test_each_request_only_waits_for_the_time_left(monkeypatch):
+    monkeypatch.setattr(ai_gateways, "MCP_CALL_DEADLINE_SECONDS", 5)
+    timeouts = []
+    client, _ = mcp_server()
+    original = client.stream
+
+    def stream(*args, **kwargs):
+        timeouts.append(kwargs.get("timeout"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(client, "stream", stream)
+
+    ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert all(0 < t.read <= 5 and t.connect <= 5 for t in timeouts)
+
+
+def test_too_many_concurrent_calls_are_refused(monkeypatch):
+    slots = threading.BoundedSemaphore(1)
+    slots.acquire()
+    monkeypatch.setattr(ai_gateways, "_mcp_call_slots", slots)
+    client, seen = mcp_server()
+
+    with pytest.raises(ai_gateways.GatewayRequestRefused) as refused:
+        ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert refused.value.status_code == 429
+    assert seen == []
+
+
+@pytest.mark.parametrize("failure", ["refused", "error", "ok"])
+def test_call_slot_is_always_released(monkeypatch, failure):
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(ai_gateways, "_mcp_call_slots", slots)
+    client, _ = mcp_server({"tools/call": httpx.Response(500, stream=httpx.ByteStream(b""))} if failure == "error" else None)
+    name = "not-listed" if failure == "refused" else "add"
+
+    try:
+        ai_gateways.call_mcp_tool(name, {}, client)
+    except ai_gateways.GatewayRequestRefused:
+        pass
+
+    assert slots.acquire(blocking=False)
+
+
+def test_binary_resource_data_is_hidden_except_previewed_images():
+    secret = base64.b64encode(b"API_KEY=prod-secret").decode()
+    png = base64.b64encode(b"\x89PNG").decode()
+    client, _ = mcp_server({"resources/read": {"result": {"contents": [
+        {"uri": "file://.env", "mimeType": "application/octet-stream", "blob": secret},
+        {"uri": "file://svg", "mimeType": "image/svg+xml", "blob": secret},
+        {"uri": "file://none", "blob": secret},
+        {"uri": "file://png", "mimeType": "image/png", "blob": png},
+    ]}}})
+
+    outcome = ai_gateways.read_mcp_resource("canvas://about", client)
+
+    contents = outcome["exchanges"][-1]["response"]["result"]["contents"]
+    assert secret not in json.dumps(outcome)
+    assert contents[0]["hiddenBytes"] == len(secret) * 3 // 4
+    assert contents[3]["blob"] == png
+
+
+def test_binary_tool_results_stay_visible_to_admins():
+    secret = base64.b64encode(b"data").decode()
+    client, _ = mcp_server({"tools/call": {"result": {"content": [
+        {"type": "resource", "resource": {"uri": "x://y", "blob": secret}}
+    ]}}})
+
+    assert secret in json.dumps(ai_gateways.call_mcp_tool("add", {}, client))
+
+
+def test_deeply_nested_result_is_refused():
+    client, _ = mcp_server({"tools/call": httpx.Response(
+        200, headers={"content-type": "application/json"}, stream=httpx.ByteStream(b"[" * 200_000 + b"]" * 200_000)
+    )})
+
+    outcome = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert outcome["error"] == "The MCP endpoint sent a response that can't be used."
+
+
+def test_resource_text_is_masked_but_tool_results_are_not():
+    secret = "Bearer abcdefghijklmnopqrstuvwx"
+    client, _ = mcp_server({
+        "resources/read": {"result": {"contents": [{"uri": "canvas://about", "text": secret}]}},
+        "tools/call": {"result": {"content": [{"type": "text", "text": secret}]}},
+    })
+
+    read = ai_gateways.read_mcp_resource("canvas://about", client)
+    called = ai_gateways.call_mcp_tool("add", {}, client)
+
+    assert secret not in json.dumps(read)
+    assert read["exchanges"][-1]["response"]["result"]["contents"][0]["uri"] == "canvas://about"
+    assert secret in json.dumps(called)
+
+
+def test_resource_too_deep_to_mask_is_refused():
+    body = b'{"jsonrpc":"2.0","id":3,"result":' + b"[" * 3000 + b"]" * 3000 + b"}"
+    client, _ = mcp_server({"resources/read": httpx.Response(
+        200, headers={"content-type": "application/json"}, stream=httpx.ByteStream(body)
+    )})
+
+    outcome = ai_gateways.read_mcp_resource("canvas://about", client)
+
+    assert outcome == {"error": "The MCP endpoint sent a response that can't be used.", "exchanges": []}
+
+
+def test_mcp_calls_need_their_url_configured(monkeypatch):
+    monkeypatch.setenv("AGENTGATEWAY_MCP_URL", "")
+    get_settings.cache_clear()
+
+    with pytest.raises(ai_gateways.GatewayRequestRefused) as refused:
+        ai_gateways.read_mcp_resource("canvas://about")
+
+    assert refused.value.status_code == 503
+
+
+@pytest.fixture
+def api(monkeypatch):
+    """The router with a real admin check, for a user whose groups the test sets."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from auth.middleware import get_current_user
+    from auth.models import AuthUser
+    from routers import ai_gateways as router_module
+
+    monkeypatch.setenv("AUTHZ_ADMIN_GROUPS", '["canvas-admin"]')
+    monkeypatch.setenv("AUTHZ_ALLOW_ALL_AUTHENTICATED", "false")
+    get_settings.cache_clear()
+    monkeypatch.setattr(router_module, "call_mcp_tool", lambda name, arguments: {"error": None, "exchanges": [name]})
+    monkeypatch.setattr(router_module, "read_mcp_resource", lambda uri: {"error": None, "exchanges": [uri]})
+
+    app = FastAPI()
+    app.include_router(router_module.router)
+    groups = []
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
+        username="u", email="", groups=groups, sub="s"
+    )
+    return TestClient(app), groups
+
+
+def test_only_admins_can_call_tools(api):
+    client, groups = api
+
+    assert client.post("/api/ai-gateways/mcp/tools/call", json={"name": "add"}).status_code == 403
+    groups.append("/canvas-admin")
+    assert client.post("/api/ai-gateways/mcp/tools/call", json={"name": "add"}).json()["exchanges"] == ["add"]
+
+
+def test_any_logged_in_user_can_read_resources(api):
+    client, _ = api
+
+    response = client.post("/api/ai-gateways/mcp/resources/read", json={"uri": "canvas://about"})
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("body", [{"name": ""}, {}, {"name": "add", "arguments": []}])
+def test_invalid_tool_calls_are_rejected(api, body):
+    client, groups = api
+    groups.append("canvas-admin")
+
+    assert client.post("/api/ai-gateways/mcp/tools/call", json=body).status_code == 422
+
+
+def test_oversized_arguments_are_rejected(api):
+    client, groups = api
+    groups.append("canvas-admin")
+    body = {"name": "add", "arguments": {"a": "x" * (ai_gateways.MAX_MCP_ARGUMENTS_BYTES + 1)}}
+
+    assert client.post("/api/ai-gateways/mcp/tools/call", json=body).status_code == 422
+
+
+def test_is_admin_matches_the_admin_requirement(monkeypatch):
+    from auth.middleware import is_admin
+    from auth.models import AuthUser
+
+    user = AuthUser(username="u", email="", groups=["/canvas-admin"], sub="s")
+    other = AuthUser(username="o", email="", groups=["viewers"], sub="s")
+
+    monkeypatch.setenv("AUTHZ_ADMIN_GROUPS", '["canvas-admin"]')
+    get_settings.cache_clear()
+    assert is_admin(user) and not is_admin(other)
+
+    monkeypatch.setenv("AUTHZ_ADMIN_GROUPS", "[]")
+    monkeypatch.setenv("AUTHZ_ALLOW_ALL_AUTHENTICATED", "false")
+    get_settings.cache_clear()
+    assert not is_admin(user)
+
+    monkeypatch.setenv("AUTHZ_ALLOW_ALL_AUTHENTICATED", "true")
+    get_settings.cache_clear()
+    assert is_admin(other)

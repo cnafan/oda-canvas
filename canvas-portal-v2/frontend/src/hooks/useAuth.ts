@@ -18,6 +18,7 @@ export function useAuth() {
     username: query.data?.username ?? '',
     email: query.data?.email ?? '',
     groups: query.data?.groups ?? [],
+    isAdmin: query.data?.isAdmin ?? false,
     refetch: query.refetch,
   }
 }

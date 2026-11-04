@@ -320,6 +320,32 @@ def _placeholders(value: Any, path: tuple[Any, ...] = ()) -> set[tuple[Any, ...]
     return set()
 
 
+def _file_references(value: Any, path: tuple[Any, ...] = ()) -> set[tuple[Any, ...]]:
+    """Each {file: ...} value, with where it is. The gateway reads these from its own pod."""
+    if isinstance(value, dict):
+        found: set[tuple[Any, ...]] = set()
+        for key, item in value.items():
+            if key == "file" and isinstance(item, str):
+                found.add((*path, item))
+            found |= _file_references(item, (*path, str(key)))
+        return found
+    if isinstance(value, list):
+        return {found for index, item in enumerate(value) for found in _file_references(item, (*path, index))}
+    return set()
+
+
+def _refuse_new_file_references(entry: dict[str, Any], existing: dict[str, Any] | None, key_file: str | None) -> None:
+    # A new one could send any file in the gateway's pod upstream as a credential, such as its
+    # service account token or another model's key. Only the file for a key just entered is allowed.
+    allowed = _file_references(existing)
+    if key_file:
+        allowed = allowed | {("params", "apiKey", f"{get_settings().AGENTGATEWAY_KEYS_PATH}/{key_file}")}
+    if _file_references(entry) - allowed:
+        raise GatewayRequestRefused(
+            422, "File references can't be added here. Enter API keys in the API key field."
+        )
+
+
 def _refuse_new_placeholders(entry: dict[str, Any], existing: dict[str, Any] | None) -> None:
     # The gateway expands environment variables across its whole config file. A new one could
     # send the gateway's own secrets upstream, and an unknown one stops the file from loading.
@@ -345,7 +371,8 @@ def _refuse_keeping_key_for_new_upstream(entry: dict[str, Any], existing: dict[s
     old_key = _as_dict(existing.get("params")).get("apiKey")
     kept_key = old_key is not None and _as_dict(entry.get("params")).get("apiKey") == old_key
     kept_auth = existing.get("auth") is not None and entry.get("auth") == existing["auth"]
-    if kept_key or kept_auth or _placeholders(entry) & _placeholders(existing):
+    kept_files = _file_references(entry) & _file_references(existing)
+    if kept_key or kept_auth or kept_files or _placeholders(entry) & _placeholders(existing):
         raise GatewayRequestRefused(
             422, "This changes where requests go, so enter its API key and other credentials again or remove them."
         )
@@ -385,6 +412,7 @@ def _build_entry(
         entry["params"] = params
     entry.update(request["advanced"])
     _refuse_new_placeholders(entry, existing)
+    _refuse_new_file_references(entry, existing, key_file)
     _refuse_keeping_key_for_new_upstream(entry, existing)
     return entry
 

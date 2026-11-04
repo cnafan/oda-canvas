@@ -8,6 +8,7 @@ Helm charts for deploying ODA Canvas operators, services, and infrastructure com
 - **Operator charts**: `component-operator/`, `api-operator-istio/`, `identityconfig-operator-keycloak/`, etc.
 - **Gateway charts**: `kong-gateway/`, `apisix-gateway/`, `apigee-gateway/`
 - **Infrastructure**: `canvas-vault/`, `cert-manager-init/`, `observability-stack/`, `canvas-namespaces/`
+- **AI gateway**: `agentgateway/` — installed as its own release, not a `canvas-oda` dependency
 - **CRDs**: `oda-crds/` — Custom Resource Definitions
 - **Webhook**: `oda-webhook/` — CRD conversion webhook
 

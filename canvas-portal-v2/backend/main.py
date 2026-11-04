@@ -6,7 +6,7 @@ from config import get_settings
 from k8s.canvas_detector import detect_canvas_type, get_cached_canvas_type
 from utils.exceptions import register_exception_handlers
 from utils.ratelimit import RateLimiter
-from routers import auth, components, conformance, dependent_apis, exposed_apis, gateway, helm, model_gateway, operators, pods, cluster, observability, registries
+from routers import ai_gateways, auth, components, conformance, dependent_apis, exposed_apis, gateway, helm, model_gateway, operators, pods, cluster, observability, registries
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ app.include_router(cluster.router)
 app.include_router(observability.router)
 app.include_router(model_gateway.router)
 app.include_router(registries.router)
+app.include_router(ai_gateways.router)
 
 
 health_rate_limiter = RateLimiter(max_requests=settings.HEALTH_RATE_LIMIT_PER_MINUTE, window_seconds=60)

@@ -54,6 +54,9 @@ jobs:
           # Update dependencies for observability-stack chart
           cd ../observability-stack
           helm dependency update          
+          # Update dependencies for agentgateway chart
+          cd ../agentgateway
+          helm dependency update
           # Update dependencies for canvas-oda chart
           cd ../canvas-oda
           helm dependency update

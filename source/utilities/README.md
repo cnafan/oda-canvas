@@ -83,3 +83,7 @@ To publish a new version, update the version number in the package.json file and
 ```
 npm publish --access public
 ```
+
+## Test MCP server
+
+A small MCP server that gives the AI gateway a real target in development clusters. See [test-mcp-server](test-mcp-server/README.md).

@@ -9,3 +9,5 @@ __pycache__/
 tests/
 pytest.ini
 requirements-dev.txt
+.venv/
+.pytest_cache/

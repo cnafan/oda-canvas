@@ -1,0 +1,67 @@
+# Overlay for the kind development cluster. Set the real LLM URL at install time:
+#   --set-string 'agentgateway-standalone.config.llm.models[0].params.baseUrl=http://<host>:<port>/v1'
+testMcpServer:
+  enabled: true
+
+agentgateway-standalone:
+  config:
+    llm:
+      gateways: default
+      policies:
+        timeout:
+          requestTimeout: 180s
+        localRateLimit:
+          - type: requests
+            maxTokens: 60
+            tokensPerFill: 60
+            fillInterval: 60s
+      models:
+        - name: Qwen/Qwen3.8-27B-FP8
+          provider: openAI
+          params:
+            baseUrl: http://llm.invalid:50343/v1
+    mcp:
+      gateways: default
+      statefulMode: stateless
+      targets:
+        - name: test-mcp
+          mcp:
+            host: http://agentgateway-test-mcp-server.canvas.svc.cluster.local:8000/mcp
+    routes:
+      - name: sample-agent
+        gateways: default
+        matches:
+          - path:
+              pathPrefix: /agents/sample-agent
+        policies:
+          a2a: {}
+          urlRewrite:
+            path:
+              prefix: /
+          timeout:
+            requestTimeout: 120s
+        backends:
+          - host: sample-agent.components.svc.cluster.local:8080
+      - name: traffic-demo
+        gateways: default
+        matches:
+          - path:
+              pathPrefix: /demo/traffic
+            method: GET
+        policies:
+          urlRewrite:
+            path:
+              prefix: /
+          timeout:
+            requestTimeout: 2s
+          retry:
+            attempts: 2
+            backoff: 200ms
+            codes: [503]
+          localRateLimit:
+            - type: requests
+              maxTokens: 20
+              tokensPerFill: 20
+              fillInterval: 60s
+        backends:
+          - host: agentgateway-test-mcp-server.canvas.svc.cluster.local:8000

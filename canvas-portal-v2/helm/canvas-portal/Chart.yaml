@@ -2,5 +2,6 @@ apiVersion: v2
 name: canvas-portal
 description: A Helm which Deploys the Canvas Portal frontend and backend
 type: application
-version: 0.1.0
+# version: 0.1.1 - add AI Gateways config (backend.aiGateways, AGENTGATEWAY_API_KEY)
+version: 0.1.1
 appVersion: "v1"

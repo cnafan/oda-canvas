@@ -1,0 +1,432 @@
+{
+  "workloads": [],
+  "services": [],
+  "binds": [
+    {
+      "key": "bind/8080",
+      "address": "[::]:8080",
+      "protocol": "http",
+      "tunnelProtocol": "direct",
+      "mode": "standard",
+      "listeners": {
+        "gateway/default": {
+          "key": "gateway/default",
+          "gatewayName": "default",
+          "gatewayNamespace": "default",
+          "listenerName": "default",
+          "hostname": "*",
+          "protocol": "HTTP",
+          "routes": {
+            "gateway/default/llm:request": {
+              "key": "gateway/default/llm:request",
+              "name": "llm:request",
+              "namespace": "internal",
+              "matches": [
+                {
+                  "path": {
+                    "pathPrefix": "/"
+                  }
+                }
+              ],
+              "backends": [
+                {
+                  "weight": 1,
+                  "backend": "/llm:router"
+                }
+              ],
+              "inlinePolicies": [
+                {
+                  "localRateLimit": [
+                    {
+                      "maxTokens": 60,
+                      "tokensPerFill": 60,
+                      "fillInterval": "1m0s",
+                      "type": "requests"
+                    }
+                  ]
+                },
+                {
+                  "timeout": {
+                    "requestTimeout": "3m0s"
+                  }
+                }
+              ]
+            },
+            "gateway/default/default/sample-agent": {
+              "key": "gateway/default/default/sample-agent",
+              "name": "sample-agent",
+              "namespace": "default",
+              "matches": [
+                {
+                  "path": {
+                    "pathPrefix": "/agents/sample-agent"
+                  }
+                }
+              ],
+              "backends": [
+                {
+                  "weight": 1,
+                  "backend": "/gateway/default/default/sample-agent/backend0",
+                  "inlinePolicies": [
+                    {
+                      "a2a": {}
+                    }
+                  ]
+                }
+              ],
+              "inlinePolicies": [
+                {
+                  "urlRewrite": {
+                    "path": {
+                      "prefix": "/"
+                    }
+                  }
+                },
+                {
+                  "timeout": {
+                    "requestTimeout": "2m0s"
+                  }
+                }
+              ]
+            },
+            "gateway/default/default/traffic-demo": {
+              "key": "gateway/default/default/traffic-demo",
+              "name": "traffic-demo",
+              "namespace": "default",
+              "matches": [
+                {
+                  "path": {
+                    "pathPrefix": "/demo/traffic"
+                  },
+                  "method": "GET"
+                }
+              ],
+              "backends": [
+                {
+                  "weight": 1,
+                  "backend": "/gateway/default/default/traffic-demo/backend0"
+                }
+              ],
+              "inlinePolicies": [
+                {
+                  "urlRewrite": {
+                    "path": {
+                      "prefix": "/"
+                    }
+                  }
+                },
+                {
+                  "localRateLimit": [
+                    {
+                      "maxTokens": 20,
+                      "tokensPerFill": 20,
+                      "fillInterval": "1m0s",
+                      "type": "requests"
+                    }
+                  ]
+                },
+                {
+                  "timeout": {
+                    "requestTimeout": "2s"
+                  }
+                },
+                {
+                  "retry": {
+                    "attempts": 2,
+                    "backoff": "200ms",
+                    "codes": [
+                      "503 Service Unavailable"
+                    ]
+                  }
+                }
+              ]
+            },
+            "gateway/default/mcp:default": {
+              "key": "gateway/default/mcp:default",
+              "name": "default",
+              "namespace": "internal",
+              "matches": [
+                {
+                  "path": {
+                    "pathPrefix": "/mcp"
+                  }
+                },
+                {
+                  "path": {
+                    "pathPrefix": "/sse"
+                  }
+                },
+                {
+                  "path": {
+                    "pathPrefix": "/.well-known"
+                  }
+                }
+              ],
+              "backends": [
+                {
+                  "weight": 1,
+                  "backend": "/mcp"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "bind/8081",
+      "address": "[::]:8081",
+      "protocol": "http",
+      "tunnelProtocol": "direct",
+      "mode": "standard",
+      "listeners": {
+        "default/default/bind/8081/listener0": {
+          "key": "default/default/bind/8081/listener0",
+          "gatewayName": "default",
+          "gatewayNamespace": "default",
+          "listenerName": "listener0",
+          "hostname": "",
+          "protocol": "HTTP",
+          "routes": {
+            "default/default/bind/8081/listener0/default/runtime": {
+              "key": "default/default/bind/8081/listener0/default/runtime",
+              "name": "runtime",
+              "namespace": "default",
+              "matches": [
+                {
+                  "path": {
+                    "exact": "/api/runtime"
+                  },
+                  "method": "GET"
+                }
+              ],
+              "backends": [
+                {
+                  "weight": 1,
+                  "backend": "/default/default/bind/8081/listener0/default/runtime/backend0"
+                }
+              ],
+              "inlinePolicies": [
+                {
+                  "aPIKey": {
+                    "users": "<redacted>",
+                    "mode": "strict",
+                    "location": {
+                      "header": {
+                        "name": "authorization",
+                        "prefix": "Bearer "
+                      }
+                    }
+                  }
+                },
+                {
+                  "budget": {}
+                }
+              ]
+            },
+            "default/default/bind/8081/listener0/default/config-dump": {
+              "key": "default/default/bind/8081/listener0/default/config-dump",
+              "name": "config-dump",
+              "namespace": "default",
+              "matches": [
+                {
+                  "path": {
+                    "exact": "/config_dump"
+                  },
+                  "method": "GET"
+                }
+              ],
+              "backends": [
+                {
+                  "weight": 1,
+                  "backend": "/default/default/bind/8081/listener0/default/config-dump/backend0"
+                }
+              ],
+              "inlinePolicies": [
+                {
+                  "aPIKey": {
+                    "users": "<redacted>",
+                    "mode": "strict",
+                    "location": {
+                      "header": {
+                        "name": "authorization",
+                        "prefix": "Bearer "
+                      }
+                    }
+                  }
+                },
+                {
+                  "budget": {}
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "routes": {
+    "httpMesh": {},
+    "tcpMesh": {},
+    "routeGroups": {}
+  },
+  "policies": [],
+  "backends": [
+    {
+      "backend": {
+        "internal": {
+          "name": "default/default/bind/8081/listener0/default/config-dump/backend0",
+          "namespace": "",
+          "target": "/config_dump"
+        }
+      }
+    },
+    {
+      "backend": {
+        "internal": {
+          "name": "default/default/bind/8081/listener0/default/runtime/backend0",
+          "namespace": "",
+          "target": "/api/runtime"
+        }
+      }
+    },
+    {
+      "backend": {
+        "host": {
+          "name": "gateway/default/default/sample-agent/backend0",
+          "namespace": "",
+          "target": "sample-agent.components.svc.cluster.local:8080"
+        }
+      }
+    },
+    {
+      "backend": {
+        "host": {
+          "name": "gateway/default/default/traffic-demo/backend0",
+          "namespace": "",
+          "target": "agentgateway-test-mcp-server.canvas.svc.cluster.local:8000"
+        }
+      }
+    },
+    {
+      "backend": {
+        "ai": {
+          "name": "llm:model:Qwen/Qwen3.8-27B-FP8:0",
+          "namespace": "",
+          "target": {
+            "providers": [
+              {
+                "active": {
+                  "Qwen/Qwen3.8-27B-FP8": {
+                    "endpoint": {
+                      "name": "Qwen/Qwen3.8-27B-FP8",
+                      "provider": {
+                        "openAI": {}
+                      },
+                      "hostOverride": "203.0.113.10:50343",
+                      "pathOverride": null,
+                      "pathPrefix": "/v1",
+                      "tokenize": false
+                    },
+                    "info": {
+                      "health": 1.0,
+                      "requestLatency": 0.226162836,
+                      "pendingRequests": 0,
+                      "totalRequests": 1,
+                      "consecutiveFailures": 0,
+                      "timesEjected": 0,
+                      "evictedUntil": null
+                    },
+                    "capacity": 1
+                  }
+                },
+                "rejected": {}
+              }
+            ]
+          }
+        }
+      },
+      "inlinePolicies": [
+        {
+          "ai": {}
+        }
+      ]
+    },
+    {
+      "backend": {
+        "llmRouter": {
+          "name": "llm:router",
+          "namespace": "",
+          "target": {
+            "discovery": "catalog",
+            "models": [
+              {
+                "discovery": {
+                  "provider": "openai",
+                  "transformation": "identity"
+                },
+                "name": "Qwen/Qwen3.8-27B-FP8",
+                "created": 1793808470,
+                "visibility": "public",
+                "headerMatches": [],
+                "backend": {
+                  "weight": 1,
+                  "backend": "/llm:model:Qwen/Qwen3.8-27B-FP8:0"
+                },
+                "policies": {
+                  "llm": {},
+                  "authorization": null
+                },
+                "backendPolicies": []
+              }
+            ],
+            "virtualModels": []
+          }
+        }
+      }
+    },
+    {
+      "backend": {
+        "mcp": {
+          "name": "mcp",
+          "namespace": "",
+          "target": {
+            "targets": [
+              {
+                "name": "test-mcp",
+                "mcp": {
+                  "backend": {
+                    "backend": "/mcp//mcp/0"
+                  },
+                  "path": "/mcp"
+                }
+              }
+            ],
+            "stateful": false,
+            "prefixMode": "conditional",
+            "failureMode": "failClosed",
+            "sessionIdleTtl": "30m0s"
+          }
+        }
+      }
+    },
+    {
+      "backend": {
+        "host": {
+          "name": "mcp//mcp/0",
+          "namespace": "",
+          "target": "agentgateway-test-mcp-server.canvas.svc.cluster.local:8000"
+        }
+      }
+    }
+  ],
+  "models": [],
+  "version": {
+    "version": "1.7.0",
+    "git_revision": "26f5aebe99a36a037fe54f8080a608aca5547e15",
+    "rust_version": "1.99.0",
+    "build_profile": "release",
+    "build_target": "x86_64-unknown-linux-gnu"
+  },
+  "config": {}
+}

@@ -1,0 +1,78 @@
+# Secret holding the API key that protects the read-only config port (8081).
+# The chart generates the key and keeps it across upgrades.
+# This name must match the secretKeyRef in agentgateway-standalone.extraEnv.
+portalKey:
+  secretName: agentgateway-portal-key
+
+# Test MCP server from source/utilities/test-mcp-server. For development clusters only.
+testMcpServer:
+  enabled: false
+  port: 8000
+  image:
+    repository: tmforumodacanvas/test-mcp-server
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+
+agentgateway-standalone:
+  fullnameOverride: agentgateway
+  image:
+    # GHCR rather than the chart's default cr.agentgateway.dev, which some corporate proxies block.
+    registry: ghcr.io/agentgateway
+    repository: agentgateway
+    tag: v1.7.0
+  gateway:
+    service:
+      type: ClusterIP
+      ports:
+        - name: http
+          port: 80
+          targetPort: 8080
+          protocol: TCP
+        - name: config
+          port: 8081
+          targetPort: 8081
+          protocol: TCP
+  extraEnv:
+    - name: PORTAL_KEY
+      valueFrom:
+        secretKeyRef:
+          name: agentgateway-portal-key
+          key: key
+  # Environment overlays add llm, mcp and routes (see values-kind.yaml).
+  # Don't set a `ui` key: it would attach the unredacted /api/config endpoints to the gateway.
+  config:
+    gateways:
+      default:
+        port: 8080
+    # Read-only view of the active config. The admin port (15000) has no auth and stays
+    # on loopback; these routes reach only the two exact paths, for GET, with the API key.
+    # They're under `binds` because Helm replaces lists, so a `routes` list in an overlay
+    # would otherwise remove them.
+    binds:
+      - port: 8081
+        listeners:
+          - routes:
+              - name: config-dump
+                matches:
+                  - path:
+                      exact: /config_dump
+                    method: GET
+                policies:
+                  apiKey:
+                    mode: strict
+                    keys:
+                      - key: $PORTAL_KEY
+                backends:
+                  - internal: /config_dump
+              - name: runtime
+                matches:
+                  - path:
+                      exact: /api/runtime
+                    method: GET
+                policies:
+                  apiKey:
+                    mode: strict
+                    keys:
+                      - key: $PORTAL_KEY
+                backends:
+                  - internal: /api/runtime

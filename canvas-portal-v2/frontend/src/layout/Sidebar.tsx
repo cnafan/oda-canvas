@@ -52,7 +52,7 @@ const navItems: NavItem[] = [
   { key: 'model-gateway', label: 'Model Gateway', icon: <RobotOutlined />, path: '/model-gateway-services', section: 'AI' },
   { key: 'tmf-ai-agents', label: 'TMF AI Agents', icon: <RobotOutlined />, path: '/tmf-ai-agents', section: 'AI' },
   { key: 'registries', label: 'Registries', icon: <DatabaseOutlined />, path: '/registries', section: 'AI' },
-  { key: 'gateways', label: 'Gateways', icon: <ApiOutlined />, path: '/gateways', section: 'AI' },
+  { key: 'gateways', label: 'AI Gateways', icon: <ApiOutlined />, path: '/gateways', section: 'AI' },
   { key: 'high-value-scenarios', label: 'High Value Scenarios', icon: <ThunderboltOutlined />, path: '/high-value-scenarios', section: 'AI' },
 
   // PLATFORM
@@ -64,7 +64,7 @@ const navItems: NavItem[] = [
 function isActive(path: string | undefined, location: string): boolean {
   if (!path) return false
   if (path === '/') return location === '/'
-  return location.startsWith(path)
+  return location === path || location.startsWith(`${path}/`)
 }
 
 function isGroupActive(item: NavItem, location: string): boolean {

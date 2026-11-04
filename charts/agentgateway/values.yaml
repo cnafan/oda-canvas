@@ -5,6 +5,7 @@ portalKey:
   secretName: agentgateway-portal-key
 
 # Test MCP server from source/utilities/test-mcp-server. For development clusters only.
+# The image is never published: build it and load it into the cluster first.
 testMcpServer:
   enabled: false
   port: 8000

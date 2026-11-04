@@ -1,6 +1,0 @@
-dependencies:
-- name: agentgateway-standalone
-  repository: oci://ghcr.io/agentgateway/charts
-  version: v1.7.0
-digest: sha256:fdcb9bdfecc5b6c8beeb553b62ed39fc98725b8f4c59555b5b48c817108153e9
-generated: "2026-11-04T16:06:13.84121643Z"

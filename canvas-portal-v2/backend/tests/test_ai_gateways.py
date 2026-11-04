@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import httpx
@@ -181,13 +182,39 @@ def test_sanitize_masks_secrets_but_not_token_counts():
         ("http://user:p@ss@host/", "http://<redacted>@host/"),
         ("http://host/mcp?api_key=abc&x=1", "http://host/mcp?api_key=<redacted>&x=1"),
         ("http://host/mcp?X-Auth-Sig=abc#frag", "http://host/mcp?X-Auth-Sig=<redacted>#frag"),
+        ("BEARER abc", "<redacted>"),
+        ("user:pw?x@host:8000", "<redacted>@host:8000"),
         ("host.example:8000/v1", "host.example:8000/v1"),
-        ("Basic calculator for sums", "Basic calculator for sums"),
-        ("Bearer tokens are accepted here", "Bearer tokens are accepted here"),
     ],
 )
 def test_sanitize_masks_secret_values(value, expected):
     assert sanitize(value) == expected
+
+
+@pytest.mark.parametrize(
+    "description, expected",
+    [
+        ("Basic calculator for sums", "Basic calculator for sums"),
+        ("Bearer tokens are accepted here", "Bearer tokens are accepted here"),
+        ("Use Bearer abcdefghijklmnop123 to call", "Use <redacted> to call"),
+        ("Calls https://u:p@host/x?api_key=abc", "Calls https://<redacted>@host/x?api_key=<redacted>"),
+    ],
+)
+def test_mcp_descriptions_stay_readable_but_lose_secrets(description, expected):
+    assert ai_gateways._mcp_description(description) == expected
+
+
+def test_mcp_text_is_limited_in_length():
+    assert len(ai_gateways._mcp_description("x" * 100_000)) == ai_gateways.MAX_MCP_TEXT_LENGTH
+
+
+def test_masking_long_hostile_input_is_fast():
+    hostile = "?" + "key" * 300_000
+
+    start = time.monotonic()
+    sanitize(hostile)
+
+    assert time.monotonic() - start < 1
 
 
 def test_summary_ok_sends_the_key_and_includes_runtime_and_discovery():

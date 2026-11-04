@@ -20,22 +20,27 @@ from config import get_settings
 MCP_ACCEPT = "application/json, text/event-stream"
 MAX_MCP_RESPONSE_BYTES = 1024 * 1024
 MCP_DISCOVERY_DEADLINE_SECONDS = 8.0
+MAX_MCP_TEXT_LENGTH = 2048
 
 # Case-sensitive `[Tt]oken$`, so rate-limit fields such as maxTokens stay visible.
 _SECRET_KEY = re.compile(
     r"[Ss]ecret|[Pp]assword|[Aa]pi[-_]?[Kk]ey|[Aa]uthorization|[Cc]ookie|[Cc]redential|[Tt]oken$|^key$"
 )
-# An auth scheme only counts when followed by a credential-length token, so that
-# text such as "Basic calculator" in a tool description stays readable.
 _SECRET_VALUE = re.compile(
-    r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9+/=._~-]{16,}"  # Authorization values
+    r"(?i)\b(?:bearer|basic)\s+\S+"  # Authorization values
     r"|\bsk-[A-Za-z0-9_-]{8,}"  # Provider API keys
-    r"|(?<=://)[^/?#\s]*(?=@)"  # URL userinfo, up to the last @ in the authority
-    r"|^[^/?#\s]*(?=@)"  # Userinfo on a host with no scheme
+    r"|(?<=://)[^/\s]*(?=@)"  # URL userinfo, up to the last @ in the authority
+    r"|^[^/\s]*(?=@)"  # Userinfo on a host with no scheme
 )
-_SECRET_PARAM = re.compile(
-    r"(?i)([?&;#][\w-]*(?:key|token|secret|password|credential|auth|sig)[\w-]*=)[^&;#\s]+"
+# For MCP descriptions only: an auth scheme counts when followed by a credential-length
+# token, so that prose such as "Basic calculator" stays readable.
+_SECRET_IN_PROSE = re.compile(
+    r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9+/=._~-]{16,}"
+    r"|\bsk-[A-Za-z0-9_-]{8,}"
+    r"|(?<=://)[^/\s]*(?=@)"
 )
+_QUERY_PARAM = re.compile(r"([?&;#][\w-]*=)[^&;#\s]+")
+_SECRET_PARAM_NAME = re.compile(r"(?i)key|token|secret|password|credential|auth|sig")
 
 # Policies shown elsewhere on the page, or with nothing to show.
 _NON_TRAFFIC_POLICIES = {"a2a", "budget"}
@@ -73,8 +78,26 @@ def sanitize(value: Any) -> Any:
     if isinstance(value, list):
         return [sanitize(item) for item in value]
     if isinstance(value, str):
-        return _SECRET_PARAM.sub(r"\1<redacted>", _SECRET_VALUE.sub("<redacted>", value))
+        return _mask_params(_SECRET_VALUE.sub("<redacted>", value))
     return value
+
+
+def _mask_params(text: str) -> str:
+    def mask(match: re.Match[str]) -> str:
+        name = match.group(1)
+        return f"{name}<redacted>" if _SECRET_PARAM_NAME.search(name) else match.group(0)
+
+    return _QUERY_PARAM.sub(mask, text)
+
+
+def _mcp_text(value: Any) -> str:
+    """Upstream servers control this text, so limit its length before masking."""
+    return sanitize(str(value or "")[:MAX_MCP_TEXT_LENGTH])
+
+
+def _mcp_description(value: Any) -> str:
+    text = str(value or "")[:MAX_MCP_TEXT_LENGTH]
+    return _mask_params(_SECRET_IN_PROSE.sub("<redacted>", text))
 
 
 def _format_match(match: Any) -> str:
@@ -307,14 +330,14 @@ def _discover_mcp(client: httpx.Client, url: str) -> dict[str, Any]:
     return {
         "discovered": {
             "tools": [
-                {"name": str(t.get("name") or ""), "description": str(t.get("description") or "")}
+                {"name": _mcp_text(t.get("name")), "description": _mcp_description(t.get("description"))}
                 for t in map(_as_dict, _as_list(tools.get("tools")))
             ],
             "resources": [
                 {
-                    "name": str(r.get("name") or ""),
-                    "uri": str(r.get("uri") or ""),
-                    "description": str(r.get("description") or ""),
+                    "name": _mcp_text(r.get("name")),
+                    "uri": _mcp_text(r.get("uri")),
+                    "description": _mcp_description(r.get("description")),
                 }
                 for r in map(_as_dict, _as_list(resources.get("resources")))
             ],
@@ -390,7 +413,7 @@ def _summary(client: httpx.Client) -> dict[str, Any]:
         "message": "",
         **parse_config_dump(dump),
         "runtime": _read_runtime(client, url, headers),
-        **sanitize(_cached_discovery(client, settings.AGENTGATEWAY_MCP_URL)),
+        **_cached_discovery(client, settings.AGENTGATEWAY_MCP_URL),
     }
 
 

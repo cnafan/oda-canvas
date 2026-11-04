@@ -220,7 +220,7 @@ function Banner({ data, isLoading, isError }: { data?: AiGatewaysSummary; isLoad
           type="warning"
           showIcon
           message="The latest configuration was not applied, so this page shows the configuration still running"
-          description={data.runtime?.lastError ?? undefined}
+          description="Check the agentgateway logs for the error."
         />
       )}
       {warnings.map((warning) => (

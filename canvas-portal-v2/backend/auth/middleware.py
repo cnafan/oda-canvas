@@ -25,8 +25,20 @@ def _normalize_group(group: str) -> str:
     return group.strip().lstrip("/")
 
 
+def _admin_groups() -> set[str]:
+    return {_normalize_group(g) for g in get_settings().AUTHZ_ADMIN_GROUPS if g.strip()}
+
+
+def is_admin(user: AuthUser) -> bool:
+    """The rule require_admin enforces, for routes that vary their response by role."""
+    required = _admin_groups()
+    if not required:
+        return get_settings().AUTHZ_ALLOW_ALL_AUTHENTICATED
+    return not required.isdisjoint(_normalize_group(g) for g in user.groups)
+
+
 async def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
-    required = {_normalize_group(g) for g in get_settings().AUTHZ_ADMIN_GROUPS if g.strip()}
+    required = _admin_groups()
     if not required:
         if get_settings().AUTHZ_ALLOW_ALL_AUTHENTICATED:
             return user

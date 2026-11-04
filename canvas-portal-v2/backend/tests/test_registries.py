@@ -6,7 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from auth.middleware import get_current_user
+from auth.middleware import get_current_user, is_admin
+from auth.models import AuthUser
 from config import get_settings
 from routers import registries
 from utils.exceptions import register_exception_handlers
@@ -17,11 +18,15 @@ API = "/rest/v1/registry-center"
 REGISTERED = {"name": "A b", "provider": {"organization": "org"}, "publishStatus": "registered"}
 PUBLISHED = {"name": "B", "provider": {"organization": "org"}, "publishStatus": "published"}
 MANAGE = (200, {"agentCards": [REGISTERED, PUBLISHED], "statusCounts": {"registered": 1, "published": 1}})
+DISCOVERY = (200, {"agentCards": [{"name": "B", "provider": {"organization": "org"}}]})
 HEALTH = (
     200,
     {"agents": [{"name": "B", "organization": "org", "health_status": "healthy"}], "config": {"enabled": True}},
 )
 
+
+ADMIN = AuthUser(username="admin", email="", groups=["/canvas-admin"])
+VIEWER = AuthUser(username="viewer", email="", groups=["/viewers"])
 
 app = FastAPI()
 register_exception_handlers(app)
@@ -29,12 +34,16 @@ app.include_router(registries.router)
 client = TestClient(app, raise_server_exceptions=False)
 
 
+def act_as(user):
+    app.dependency_overrides[get_current_user] = lambda: user
+
+
 @pytest.fixture(autouse=True)
 def configured(monkeypatch):
     get_settings.cache_clear()
     monkeypatch.setenv("REGISTRY_CENTER_URL", "http://rc:5000/")
     monkeypatch.setenv("REGISTRY_CENTER_TOKEN", TOKEN)
-    app.dependency_overrides[get_current_user] = lambda: object()
+    act_as(ADMIN)
     yield
     app.dependency_overrides.clear()
     get_settings.cache_clear()
@@ -45,7 +54,7 @@ def upstream(monkeypatch):
     """Serve a {path: (status, json) | Exception} map in place of the registry; returns the calls made."""
 
     def install(routes=None):
-        table = {"/agent-cards/manage": MANAGE, "/agents/health": HEALTH, **(routes or {})}
+        table = {"/agent-cards/manage": MANAGE, "/agent-cards": DISCOVERY, "/agents/health": HEALTH, **(routes or {})}
         calls = []
 
         def fake_get(url, params=None, headers=None, timeout=None):
@@ -160,6 +169,101 @@ def test_unknown_agent_is_404_without_per_agent_upstream_calls(upstream):
 
     assert response.status_code == 404
     assert not [call for call in calls if "with-layer" in call["url"] or "review-status" in call["url"]]
+
+
+def test_card_named_with_dot_segment_never_reaches_an_upstream_path(upstream):
+    dotted = {"name": "..", "provider": {"organization": "org"}, "publishStatus": "published"}
+    calls = upstream({"/agent-cards/manage": (200, {"agentCards": [dotted]})})
+
+    response = client.get("/api/registries/agents/org/%2e%2e")
+
+    assert response.status_code == 404
+    assert calls == []
+
+
+def test_non_admin_list_has_only_published_agents_and_no_health(upstream):
+    calls = upstream()
+    act_as(VIEWER)
+
+    body = client.get("/api/registries/agents").json()
+
+    assert [agent["name"] for agent in body["agents"]] == ["B"]
+    assert body["agents"][0]["health"] is None
+    assert body["statusCounts"] == {"published": 1}
+    assert body["heartbeatEnabled"] is False
+    assert body["fullAccess"] is False
+    assert not [call for call in calls if "agents/health" in call["url"]]
+
+
+def test_non_admin_is_served_only_from_public_discovery(upstream):
+    calls = upstream(
+        {"/agent-cards/manage": (200, {"agentCards": [{**PUBLISHED, "adminOnly": "secret"}]})}
+    )
+    act_as(VIEWER)
+
+    response = client.get("/api/registries/agents")
+
+    assert "secret" not in response.text
+    assert response.json()["agents"][0]["publishStatus"] == "published"
+    assert [call["url"].split(API, 1)[1] for call in calls] == ["/agent-cards"]
+
+
+def test_non_admin_does_not_see_a_published_agent_discovery_hides(upstream):
+    upstream({"/agent-cards": (200, {"agentCards": []})})
+    act_as(VIEWER)
+
+    assert client.get("/api/registries/agents").json()["agents"] == []
+    assert client.get("/api/registries/agents/org/B").status_code == 404
+
+
+def test_non_admin_cannot_tell_an_unpublished_agent_from_a_missing_one(upstream):
+    calls = upstream()
+    act_as(VIEWER)
+
+    unpublished = client.get("/api/registries/agents/org/A%20b")
+    missing = client.get("/api/registries/agents/org/Nope")
+
+    assert unpublished.status_code == missing.status_code == 404
+    assert "Nope" in missing.json()["detail"] and "A b" in unpublished.json()["detail"]
+    assert not [call for call in calls if "with-layer" in call["url"] or "review-status" in call["url"]]
+
+
+def test_non_admin_detail_of_published_agent_has_no_review_or_health(upstream):
+    calls = upstream({"/agent-cards-with-layer/org/B": (200, {"layer": "service"})})
+    act_as(VIEWER)
+
+    body = client.get("/api/registries/agents/org/B").json()
+
+    assert body["layer"] == "service"
+    assert body["review"] is None
+    assert body["health"] is None
+    assert body["fullAccess"] is False
+    assert not [call for call in calls if "review-status" in call["url"] or "agents/health" in call["url"]]
+
+
+def test_admin_responses_report_full_access(upstream):
+    upstream()
+
+    assert client.get("/api/registries/agents").json()["fullAccess"] is True
+    assert client.get("/api/registries/agents/org/A%20b").json()["fullAccess"] is True
+
+
+@pytest.mark.parametrize(
+    "admin_groups, allow_all, expected",
+    [
+        ('["canvas-admin"]', "false", False),
+        ('["viewers"]', "false", True),
+        ('[]', "false", False),
+        ('[]', "true", True),
+        ('["canvas-admin"]', "true", False),
+    ],
+)
+def test_is_admin_follows_the_require_admin_rule(monkeypatch, admin_groups, allow_all, expected):
+    monkeypatch.setenv("AUTHZ_ADMIN_GROUPS", admin_groups)
+    monkeypatch.setenv("AUTHZ_ALLOW_ALL_AUTHENTICATED", allow_all)
+    get_settings.cache_clear()
+
+    assert is_admin(VIEWER) is expected
 
 
 def test_routes_require_authentication():

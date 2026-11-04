@@ -11,7 +11,7 @@ from urllib.parse import quote
 import httpx
 from fastapi import APIRouter, Depends
 
-from auth.middleware import get_current_user
+from auth.middleware import get_current_user, is_admin
 from auth.models import AuthUser
 from config import get_settings
 from utils.exceptions import CanvasPortalError
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/registries", tags=["registries"])
 API_BASE = "/rest/v1/registry-center"
 TIMEOUT_SECONDS = 5.0
 REVIEW_HISTORY_LIMIT = 100
+DOT_SEGMENTS = {".", ".."}
 
 
 def _registry_get(path: str, params: Optional[dict] = None) -> dict:
@@ -76,31 +77,52 @@ def _health_index() -> tuple[dict[tuple[str, str], dict], bool]:
     return index, (body.get("config") or {}).get("enabled") is True
 
 
-def _list_agents() -> dict:
+def _list_agents(full_access: bool) -> dict:
+    """List agents for the caller's role.
+
+    The upstream token can read admin-only data, so the role is enforced here.
+    Non-admins are served only from the registry's public discovery route, which
+    applies its own visibility rules; the management route is never read for them.
+    """
+    if not full_access:
+        discovered = _registry_get("/agent-cards").get("agentCards") or []
+        return {
+            "agents": [{**card, "publishStatus": "published", "health": None} for card in discovered],
+            "statusCounts": {"published": len(discovered)},
+            "heartbeatEnabled": False,
+            "fullAccess": False,
+        }
     body = _registry_get("/agent-cards/manage")
+    cards = body.get("agentCards") or []
     health, heartbeat_enabled = _health_index()
     agents = [
         {**card, "health": health.get(((card.get("provider") or {}).get("organization"), card.get("name")))}
-        for card in body.get("agentCards") or []
+        for card in cards
     ]
     return {
         "agents": agents,
         "statusCounts": body.get("statusCounts") or {},
         "heartbeatEnabled": heartbeat_enabled,
+        "fullAccess": True,
     }
 
 
 @router.get("/agents")
-def get_agents(_: AuthUser = Depends(get_current_user)):
-    return _list_agents()
+def get_agents(user: AuthUser = Depends(get_current_user)):
+    return _list_agents(is_admin(user))
 
 
 @router.get("/agents/{organization}/{name}")
-def get_agent(organization: str, name: str, _: AuthUser = Depends(get_current_user)):
+def get_agent(organization: str, name: str, user: AuthUser = Depends(get_current_user)):
+    # quote() leaves dots alone, so these would rewrite the upstream path below.
+    if organization in DOT_SEGMENTS or name in DOT_SEGMENTS:
+        raise CanvasPortalError(f"Agent '{organization}/{name}' not found", 404)
+
     # Find the card in the management list: the public single-card route hides
     # unpublished cards. Doing this first also means the per-agent upstream
     # calls below only ever run for an organization/name known to the registry.
-    listing = _list_agents()
+    full_access = is_admin(user)
+    listing = _list_agents(full_access)
     agent = next(
         (
             item
@@ -118,7 +140,11 @@ def get_agent(organization: str, name: str, _: AuthUser = Depends(get_current_us
     agent_path = f"{quote(organization, safe='')}/{quote(name, safe='')}"
     # The layer route returns 404 for unpublished cards, so a missing layer is normal.
     registration = _registry_get_optional(f"/agent-cards-with-layer/{agent_path}")
-    review = _registry_get_optional(f"/agent-cards/{agent_path}/review-status", {"limit": REVIEW_HISTORY_LIMIT})
+    review = (
+        _registry_get_optional(f"/agent-cards/{agent_path}/review-status", {"limit": REVIEW_HISTORY_LIMIT})
+        if full_access
+        else None
+    )
     return {
         "card": card,
         "publishStatus": publish_status,
@@ -126,4 +152,5 @@ def get_agent(organization: str, name: str, _: AuthUser = Depends(get_current_us
         "heartbeatEnabled": listing["heartbeatEnabled"],
         "layer": registration.get("layer") if registration else None,
         "review": review,
+        "fullAccess": full_access,
     }

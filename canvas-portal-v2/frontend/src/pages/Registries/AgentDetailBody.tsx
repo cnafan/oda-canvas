@@ -127,7 +127,7 @@ export default function AgentDetailBody({ organization, name }: { organization: 
     return <Alert type="error" showIcon message="Failed to load agent" description={registryErrorMessage(error)} />
   }
 
-  const { card, publishStatus, health, heartbeatEnabled, layer, review } = data
+  const { card, publishStatus, health, heartbeatEnabled, layer, review, fullAccess } = data
   const capabilities = card.capabilities ?? {}
   const securitySchemes = Object.keys(card.securitySchemes ?? {})
   const history = review?.history ?? []
@@ -227,21 +227,25 @@ export default function AgentDetailBody({ organization, name }: { organization: 
         </div>
       ),
     },
-    {
-      key: 'review',
-      label: <span><HistoryOutlined style={{ marginRight: 6 }} />Review</span>,
-      children: history.length ? (
-        <Table
-          size="small"
-          pagination={false}
-          rowKey={(row) => `${row.at}-${row.to_status}`}
-          columns={reviewColumns}
-          dataSource={history}
-        />
-      ) : (
-        <Empty>{review ? 'No review transitions recorded.' : 'Review history is unavailable.'}</Empty>
-      ),
-    },
+    ...(fullAccess
+      ? [
+          {
+            key: 'review',
+            label: <span><HistoryOutlined style={{ marginRight: 6 }} />Review</span>,
+            children: history.length ? (
+              <Table
+                size="small"
+                pagination={false}
+                rowKey={(row) => `${row.at}-${row.to_status}`}
+                columns={reviewColumns}
+                dataSource={history}
+              />
+            ) : (
+              <Empty>{review ? 'No review transitions recorded.' : 'Review history is unavailable.'}</Empty>
+            ),
+          },
+        ]
+      : []),
     {
       key: 'raw',
       label: <span><CodeOutlined style={{ marginRight: 6 }} />Raw</span>,

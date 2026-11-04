@@ -26,11 +26,15 @@ MAX_MCP_TEXT_LENGTH = 2048
 _SECRET_KEY = re.compile(
     r"[Ss]ecret|[Pp]assword|[Aa]pi[-_]?[Kk]ey|[Aa]uthorization|[Cc]ookie|[Cc]redential|[Tt]oken$|^key$"
 )
+# user:password@host at the start of a word or after a slash. It needs a colon before
+# the last @, so plain email addresses stay readable.
+_USERINFO_WITH_PASSWORD = r"(?<![^\s/])[^/\s:]+:[^/\s]+(?=@)"
 _SECRET_VALUE = re.compile(
     r"(?i)\b(?:bearer|basic)\s+\S+"  # Authorization values
     r"|\bsk-[A-Za-z0-9_-]{8,}"  # Provider API keys
     r"|(?<=://)[^/\s]*(?=@)"  # URL userinfo, up to the last @ in the authority
     r"|^[^/\s]*(?=@)"  # Userinfo on a host with no scheme
+    rf"|{_USERINFO_WITH_PASSWORD}"
 )
 # For MCP descriptions only: an auth scheme counts when followed by a credential-length
 # token, so that prose such as "Basic calculator" stays readable.
@@ -38,9 +42,10 @@ _SECRET_IN_PROSE = re.compile(
     r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9+/=._~-]{16,}"
     r"|\bsk-[A-Za-z0-9_-]{8,}"
     r"|(?<=://)[^/\s]*(?=@)"
-    r"|(?<!\S)[^/\s:@]+:[^/\s]+(?=@)"  # user:password@host, so email addresses stay readable
+    rf"|{_USERINFO_WITH_PASSWORD}"
 )
-_QUERY_PARAM = re.compile(r"([?&;#][\w-]*=)[^?&;#\s]+")
+_PARAM_START = re.compile(r"[?&;#][\w-]*=")
+_PARAM_VALUE_END = re.compile(r"[&;#\s]")
 _SECRET_PARAM_NAME = re.compile(r"(?i)key|token|secret|password|credential|auth|sig")
 
 # Policies shown elsewhere on the page, or with nothing to show.
@@ -84,11 +89,21 @@ def sanitize(value: Any) -> Any:
 
 
 def _mask_params(text: str) -> str:
-    def mask(match: re.Match[str]) -> str:
-        name = match.group(1)
-        return f"{name}<redacted>" if _SECRET_PARAM_NAME.search(name) else match.group(0)
+    """Mask secret-like parameter values, including parameters nested in another's value.
 
-    return _QUERY_PARAM.sub(mask, text)
+    A secret value runs to the next delimiter, even past a `?`. This is one scan,
+    so its time stays linear on hostile input.
+    """
+    parts = []
+    position = 0
+    for match in _PARAM_START.finditer(text):
+        if match.start() < position or not _SECRET_PARAM_NAME.search(match.group()):
+            continue
+        end = _PARAM_VALUE_END.search(text, match.end())
+        parts += [text[position:match.end()], "<redacted>"]
+        position = end.start() if end else len(text)
+    parts.append(text[position:])
+    return "".join(parts)
 
 
 def _mcp_text(value: Any) -> str:

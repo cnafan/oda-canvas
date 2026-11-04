@@ -183,6 +183,9 @@ def test_sanitize_masks_secrets_but_not_token_counts():
         ("http://host/mcp?api_key=abc&x=1", "http://host/mcp?api_key=<redacted>&x=1"),
         ("http://host/mcp?X-Auth-Sig=abc#frag", "http://host/mcp?X-Auth-Sig=<redacted>#frag"),
         ("BEARER abc", "<redacted>"),
+        ("http://host/?api_key=abc?def&x=1", "http://host/?api_key=<redacted>&x=1"),
+        ("http://host/?next=https://y/?token=abc&x=1", "http://host/?next=https://y/?token=<redacted>&x=1"),
+        ("//u:p@host/mcp", "//<redacted>@host/mcp"),
         ("user:pw?x@host:8000", "<redacted>@host:8000"),
         ("host.example:8000/v1", "host.example:8000/v1"),
     ],
@@ -200,6 +203,10 @@ def test_sanitize_masks_secret_values(value, expected):
         ("Calls https://u:p@host/x?api_key=abc", "Calls https://<redacted>@host/x?api_key=<redacted>"),
         ("Calls u:p@ss@host/mcp", "Calls <redacted>@host/mcp"),
         ("Ask me@example.com for help", "Ask me@example.com for help"),
+        ("Calls me@corp.com:pw@host/mcp", "Calls <redacted>@host/mcp"),
+        ("Calls //u:p@host/mcp", "Calls //<redacted>@host/mcp"),
+        ("See http://host/x?y=1 for help", "See http://host/x?y=1 for help"),
+        ("Uses ?api_key=abc?def here", "Uses ?api_key=<redacted> here"),
         ("Go to /x?next=https://y/?token=abc", "Go to /x?next=https://y/?token=<redacted>"),
     ],
 )
@@ -211,7 +218,7 @@ def test_mcp_text_is_limited_in_length():
     assert len(ai_gateways._mcp_description("x" * 100_000)) == ai_gateways.MAX_MCP_TEXT_LENGTH
 
 
-@pytest.mark.parametrize("hostile", ["?" + "key" * 300_000, "a:" * 500_000, "?a=" * 300_000, "a b " * 250_000])
+@pytest.mark.parametrize("hostile", ["?" + "key" * 300_000, "a:" * 500_000, "?a=" * 300_000, "a b " * 250_000, "?key=" * 200_000, "/a:" * 300_000, "@:" * 500_000])
 def test_masking_long_hostile_input_is_fast(hostile):
     start = time.monotonic()
     sanitize(hostile)

@@ -26,6 +26,11 @@ A web management portal for an ODA Canvas. It is the successor to the Spring Boo
 
 Each active model has a **Test** button. It opens a dialog, sends `PING` to the model through the gateway with streaming on, and shows the reply as it arrives. The backend fixes the prompt and limits the reply to 256 tokens, and it only accepts models that are active on the gateway. Any logged-in user can run a test, and each test uses a request from the gateway's LLM rate limit.
 
+The name of each live tool and resource opens an inspector dialog, modelled on the [MCP Inspector](https://github.com/modelcontextprotocol/inspector). The backend runs a full MCP session through the gateway for each call, and only for items the gateway lists at that moment. The **Protocol** tab shows the JSON-RPC exchanges.
+
+- **Tools:** the dialog builds a form from the tool's input schema, with **Edit as JSON** as a fallback. Nothing is sent until **Call tool** is pressed, and only members of `backend.auth.adminGroups` can call tools, because a tool can change things. Closing the dialog doesn't stop a call the server has already started. Results are shown unmasked.
+- **Resources:** any logged-in user can read a resource, and the read starts when the dialog opens. Secret-like text in the response is masked, and binary data other than PNG, JPEG, GIF and WebP images is replaced with its size, because masking can't see into it. HTML is shown as text.
+
 | Chart value | Environment variable | Purpose |
 |---|---|---|
 | `backend.aiGateways.configUrl` | `AGENTGATEWAY_CONFIG_URL` | agentgateway's `/config_dump` URL on port 8081 |

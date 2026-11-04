@@ -34,9 +34,45 @@ export interface AiGatewayTrafficPolicy {
   settings: Record<string, unknown>
 }
 
+/** The part of a JSON Schema that the backend passes on. Other fields are dropped. */
+export interface McpSchema {
+  type?: string | string[]
+  title?: string
+  description?: string
+  default?: unknown
+  minimum?: number
+  maximum?: number
+  enum?: unknown[]
+  required?: string[]
+  properties?: Record<string, McpSchema>
+  anyOf?: McpSchema[]
+  oneOf?: McpSchema[]
+}
+
+export interface McpTool {
+  name: string
+  title: string
+  description: string
+  inputSchema: McpSchema | null
+  annotations: {
+    title?: string
+    readOnlyHint?: boolean
+    destructiveHint?: boolean
+    idempotentHint?: boolean
+    openWorldHint?: boolean
+  }
+}
+
+export interface McpResource {
+  name: string
+  uri: string
+  description: string
+  mimeType: string
+}
+
 export interface AiGatewayDiscovery {
-  tools: { name: string; description: string }[]
-  resources: { name: string; uri: string; description: string }[]
+  tools: McpTool[]
+  resources: McpResource[]
   partial: boolean
 }
 
@@ -56,6 +92,39 @@ export interface AiGatewaysSummary {
 
 export async function fetchAiGateways(): Promise<AiGatewaysSummary> {
   const { data } = await apiClient.get<AiGatewaysSummary>('/api/ai-gateways')
+  return data
+}
+
+/** One JSON-RPC request and its response. A notification has no response. */
+export interface McpExchange {
+  method: string
+  request: unknown
+  status: number | null
+  response: { result?: unknown; error?: { code?: number; message?: string } } | null
+}
+
+export interface McpCallOutcome {
+  /** Set when the call failed before a JSON-RPC response. */
+  error: string | null
+  /** Every exchange in order. The last one is the call itself, if it got that far. */
+  exchanges: McpExchange[]
+}
+
+export async function callMcpTool(
+  name: string,
+  args: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<McpCallOutcome> {
+  const { data } = await apiClient.post<McpCallOutcome>(
+    '/api/ai-gateways/mcp/tools/call',
+    { name, arguments: args },
+    { signal },
+  )
+  return data
+}
+
+export async function readMcpResource(uri: string, signal: AbortSignal): Promise<McpCallOutcome> {
+  const { data } = await apiClient.post<McpCallOutcome>('/api/ai-gateways/mcp/resources/read', { uri }, { signal })
   return data
 }
 

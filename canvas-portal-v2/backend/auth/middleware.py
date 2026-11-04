@@ -25,17 +25,26 @@ def _normalize_group(group: str) -> str:
     return group.strip().lstrip("/")
 
 
-async def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
-    required = {_normalize_group(g) for g in get_settings().AUTHZ_ADMIN_GROUPS if g.strip()}
+def _required_admin_groups() -> set[str]:
+    return {_normalize_group(g) for g in get_settings().AUTHZ_ADMIN_GROUPS if g.strip()}
+
+
+def is_admin(user: AuthUser) -> bool:
+    required = _required_admin_groups()
     if not required:
-        if get_settings().AUTHZ_ALLOW_ALL_AUTHENTICATED:
-            return user
+        return get_settings().AUTHZ_ALLOW_ALL_AUTHENTICATED
+    return not required.isdisjoint(_normalize_group(g) for g in user.groups)
+
+
+async def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
+    if is_admin(user):
+        return user
+    required = _required_admin_groups()
+    if not required:
         logger.error("AUTHZ_ADMIN_GROUPS is not configured; denying admin route access to user=%s", user.username)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access is not configured.")
-    if required.isdisjoint(_normalize_group(g) for g in user.groups):
-        logger.warning("Access denied: user=%s is not in any of the groups %s", user.username, sorted(required))
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to perform this action.",
-        )
-    return user
+    logger.warning("Access denied: user=%s is not in any of the groups %s", user.username, sorted(required))
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You do not have permission to perform this action.",
+    )

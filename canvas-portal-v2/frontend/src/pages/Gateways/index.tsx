@@ -10,9 +10,12 @@ import {
   type AiGatewaysSummary,
   type AiGatewayTool,
   type AiGatewayTrafficPolicy,
+  type McpResource,
+  type McpTool,
 } from '@/api/aiGateways'
 import SectionedPage, { PageSection } from '@/components/SectionedPage'
 import { colors } from '@/theme'
+import McpInspectorModal, { type InspectedItem } from './McpInspectorModal'
 import ModelTestModal from './ModelTestModal'
 
 const renderMatches = (matches: string[]) => (
@@ -97,7 +100,21 @@ function ConfigTable<T extends object>({
   return <Table size="small" pagination={false} rowKey={rowKey} columns={columns} dataSource={rows} />
 }
 
-function LiveDiscovery({ data }: { data: AiGatewaysSummary }) {
+function InspectLink({ label, kind, onClick }: { label: string; kind: string; onClick: () => void }) {
+  return (
+    <Button
+      type="link"
+      size="small"
+      style={{ padding: 0, height: 'auto', whiteSpace: 'normal', textAlign: 'left' }}
+      aria-label={`Inspect ${kind} ${label}`}
+      onClick={onClick}
+    >
+      {label}
+    </Button>
+  )
+}
+
+function LiveDiscovery({ data, onInspect }: { data: AiGatewaysSummary; onInspect: (item: InspectedItem) => void }) {
   const headingStyle = { fontSize: 12, fontWeight: 600, color: colors.textSecondary, margin: '16px 0 8px' }
   if (!data.discovered) {
     return (
@@ -119,7 +136,13 @@ function LiveDiscovery({ data }: { data: AiGatewaysSummary }) {
         rowKey={(tool) => tool.name}
         emptyText="No tools available"
         columns={[
-          { title: 'Tool', dataIndex: 'name' },
+          {
+            title: 'Tool',
+            dataIndex: 'name',
+            render: (name: string, tool: McpTool) => (
+              <InspectLink label={name} kind="tool" onClick={() => onInspect({ kind: 'tool', tool })} />
+            ),
+          },
           { title: 'Description', dataIndex: 'description' },
         ]}
       />
@@ -129,7 +152,17 @@ function LiveDiscovery({ data }: { data: AiGatewaysSummary }) {
         rowKey={(resource) => resource.uri}
         emptyText="No resources available"
         columns={[
-          { title: 'Resource', dataIndex: 'name' },
+          {
+            title: 'Resource',
+            dataIndex: 'name',
+            render: (name: string, resource: McpResource) => (
+              <InspectLink
+                label={name || resource.uri}
+                kind="resource"
+                onClick={() => onInspect({ kind: 'resource', resource })}
+              />
+            ),
+          },
           { title: 'URI', dataIndex: 'uri' },
           { title: 'Description', dataIndex: 'description' },
         ]}
@@ -143,7 +176,11 @@ function LiveDiscovery({ data }: { data: AiGatewaysSummary }) {
   )
 }
 
-function buildSections(data: AiGatewaysSummary | undefined, onTestModel: (model: string) => void): PageSection[] {
+function buildSections(
+  data: AiGatewaysSummary | undefined,
+  onTestModel: (model: string) => void,
+  onInspect: (item: InspectedItem) => void,
+): PageSection[] {
   const ok = data?.state === 'ok'
   return [
     {
@@ -172,7 +209,7 @@ function buildSections(data: AiGatewaysSummary | undefined, onTestModel: (model:
             rowKey={(tool) => tool.name}
             emptyText="No MCP targets are configured"
           />
-          <LiveDiscovery data={data} />
+          <LiveDiscovery data={data} onInspect={onInspect} />
         </>
       ) : undefined,
     },
@@ -247,6 +284,7 @@ function Banner({ data, isLoading, isError }: { data?: AiGatewaysSummary; isLoad
 
 export default function GatewaysPage() {
   const [testedModel, setTestedModel] = useState<string | null>(null)
+  const [inspected, setInspected] = useState<InspectedItem | null>(null)
   const { data, isLoading, isError } = useQuery({
     queryKey: ['ai-gateways'],
     queryFn: fetchAiGateways,
@@ -262,9 +300,10 @@ export default function GatewaysPage() {
         icon={<ApiOutlined />}
         hideWipBadge
         banner={<Banner data={data} isLoading={isLoading} isError={isError} />}
-        sections={buildSections(data, setTestedModel)}
+        sections={buildSections(data, setTestedModel, setInspected)}
       />
       {testedModel && <ModelTestModal model={testedModel} onClose={() => setTestedModel(null)} />}
+      {inspected && <McpInspectorModal item={inspected} onClose={() => setInspected(null)} />}
     </>
   )
 }

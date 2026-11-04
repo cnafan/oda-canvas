@@ -4,6 +4,7 @@ export interface AuthMe {
   username: string
   email: string
   groups: string[]
+  isAdmin: boolean
   authenticated: boolean
 }
 

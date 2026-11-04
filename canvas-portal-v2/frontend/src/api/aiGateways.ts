@@ -205,6 +205,70 @@ export async function removeModelConfig(name: string): Promise<ModelChangeResult
   return data
 }
 
+export interface ChangeResult extends ModelChangeResult {
+  warning?: string
+}
+
+/** An MCP server as it is in the gateway's config. Auth tokens are never included. */
+export interface McpTarget {
+  name: string
+  transport: 'mcp' | 'sse' | 'openapi' | 'stdio'
+  host: string | null
+  port: number | null
+  path: string | null
+  backend: string | null
+  schema: string | null
+  /** The schema isn't inline, so the form can't show it. It stays if none is entered. */
+  schemaKept: boolean
+  command: string | null
+  condition: string | null
+  tokenSet: boolean
+  policies: Record<string, unknown>
+  revision: string
+}
+
+export interface McpTargets {
+  configurable: boolean
+  targets: McpTarget[]
+}
+
+export interface McpTargetInput {
+  name: string
+  transport: McpTarget['transport']
+  host: string | null
+  port: number | null
+  path: string | null
+  schema: string | null
+  condition: string | null
+  authToken: string | null
+  removeAuthToken: boolean
+  policies: Record<string, unknown>
+}
+
+export async function fetchMcpTargets(): Promise<McpTargets> {
+  const { data } = await apiClient.get<McpTargets>('/api/ai-gateways/mcp/targets')
+  return data
+}
+
+export async function addMcpTarget(input: McpTargetInput): Promise<ChangeResult> {
+  const { data } = await apiClient.post<ChangeResult>('/api/ai-gateways/mcp/targets', input)
+  return data
+}
+
+export async function updateMcpTarget(
+  input: McpTargetInput,
+  originalName: string,
+  revision: string,
+): Promise<ChangeResult> {
+  const { data } = await apiClient.put<ChangeResult>('/api/ai-gateways/mcp/targets', { ...input, originalName, revision })
+  return data
+}
+
+export async function removeMcpTarget(name: string): Promise<ChangeResult> {
+  const { data } = await apiClient.delete<ChangeResult>('/api/ai-gateways/mcp/targets', { params: { name } })
+  return data
+}
+
 export type ModelTestEvent =
   | { type: 'reasoning' | 'content'; text: string }
   | { type: 'done'; finishReason: string | null }

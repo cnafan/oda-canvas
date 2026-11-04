@@ -4,7 +4,7 @@
 portalKey:
   secretName: agentgateway-portal-key
 
-# Secret holding model API keys. The canvas portal manages its contents, and the gateway
+# Secret holding model API keys and MCP server auth tokens. The canvas portal manages its contents, and the gateway
 # reads them as files. This name must match agentgateway-standalone.extraVolumes.
 llmKeys:
   secretName: agentgateway-llm-keys

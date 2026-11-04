@@ -5,7 +5,9 @@ import type { ColumnsType } from 'antd/es/table'
 import { ApiOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   fetchAiGateways,
+  fetchMcpTargets,
   fetchModelConfigs,
+  removeMcpTarget,
   removeModelConfig,
   type AiGatewayAgent,
   type AiGatewayModel,
@@ -13,6 +15,7 @@ import {
   type AiGatewayTool,
   type AiGatewayTrafficPolicy,
   type McpResource,
+  type McpTarget,
   type McpTool,
   type ModelConfig,
 } from '@/api/aiGateways'
@@ -21,6 +24,7 @@ import { colors } from '@/theme'
 import { useAuth } from '@/hooks/useAuth'
 import { errorDetail } from './errorDetail'
 import McpInspectorModal, { type InspectedItem } from './McpInspectorModal'
+import McpTargetModal from './McpTargetModal'
 import ModelConfigModal, { type EditedModel } from './ModelConfigModal'
 import ModelTestModal from './ModelTestModal'
 
@@ -33,6 +37,40 @@ const renderMatches = (matches: string[]) => (
     ))}
   </Space>
 )
+
+function RemoveButton({
+  name,
+  description,
+  pending,
+  onConfirm,
+}: {
+  name: string
+  description: string
+  pending: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <Popconfirm
+      title={`Remove ${name}?`}
+      description={description}
+      okText="Remove"
+      okButtonProps={{ danger: true }}
+      onConfirm={onConfirm}
+    >
+      <Button size="small" danger loading={pending} aria-label={`Remove ${name}`}>
+        Remove
+      </Button>
+    </Popconfirm>
+  )
+}
+
+function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Tooltip title={label}>
+      <Button size="small" icon={<PlusOutlined />} aria-label={label} onClick={onClick} />
+    </Tooltip>
+  )
+}
 
 interface ModelActions {
   onTest: (model: string) => void
@@ -75,17 +113,12 @@ const modelColumns = ({ onTest, configFor, onEdit, onRemove, removing }: ModelAc
               <Button size="small" aria-label={`Edit ${model.name}`} onClick={() => onEdit(config)}>
                 Edit
               </Button>
-              <Popconfirm
-                title={`Remove ${model.name}?`}
+              <RemoveButton
+                name={model.name}
                 description="Clients can no longer call this model through the gateway."
-                okText="Remove"
-                okButtonProps={{ danger: true }}
+                pending={removing === model.name}
                 onConfirm={() => onRemove(model.name)}
-              >
-                <Button size="small" danger loading={removing === model.name} aria-label={`Remove ${model.name}`}>
-                  Remove
-                </Button>
-              </Popconfirm>
+              />
             </>
           )}
         </Space>
@@ -94,11 +127,45 @@ const modelColumns = ({ onTest, configFor, onEdit, onRemove, removing }: ModelAc
   },
 ]
 
-const toolColumns: ColumnsType<AiGatewayTool> = [
+interface TargetActions {
+  /** Only for admins, and only for the servers that are in the gateway's mcp.targets list. */
+  configFor: (name: string) => McpTarget | undefined
+  onEdit: (target: McpTarget) => void
+  onRemove: (name: string) => void
+  removing: string | null
+  isLastTarget: boolean
+}
+
+const toolColumns = ({ configFor, onEdit, onRemove, removing, isLastTarget }: TargetActions): ColumnsType<AiGatewayTool> => [
   { title: 'Target', dataIndex: 'name' },
   { title: 'Upstream', dataIndex: 'upstream' },
   { title: 'Paths', dataIndex: 'matches', render: renderMatches },
   { title: 'Sessions', dataIndex: 'stateful', render: (stateful: boolean) => (stateful ? 'Stateful' : 'Stateless') },
+  {
+    title: 'Actions',
+    key: 'actions',
+    render: (_, tool) => {
+      const target = configFor(tool.name)
+      if (!target) return null
+      return (
+        <Space size={8}>
+          <Button size="small" aria-label={`Edit ${tool.name}`} onClick={() => onEdit(target)}>
+            Edit
+          </Button>
+          <RemoveButton
+            name={tool.name}
+            description={
+              isLastTarget
+                ? "This is the last MCP server, so the gateway's MCP endpoint stops working until another is added."
+                : "Clients can no longer use this server's tools and resources through the gateway."
+            }
+            pending={removing === tool.name}
+            onConfirm={() => onRemove(tool.name)}
+          />
+        </Space>
+      )
+    },
+  },
 ]
 
 const agentColumns: ColumnsType<AiGatewayAgent> = [
@@ -218,6 +285,8 @@ function buildSections(
   data: AiGatewaysSummary | undefined,
   modelActions: ModelActions,
   onAddModel: (() => void) | null,
+  targetActions: TargetActions,
+  onAddTarget: (() => void) | null,
   onInspect: (item: InspectedItem) => void,
 ): PageSection[] {
   const ok = data?.state === 'ok'
@@ -227,12 +296,7 @@ function buildSections(
       title: 'Models',
       description: 'LLM consumption: the models that clients can call through the gateway.',
       link: { to: '/model-gateway-services', label: 'Open Model Gateway services' },
-      actions:
-        ok && onAddModel ? (
-          <Tooltip title="Add a model">
-            <Button size="small" icon={<PlusOutlined />} aria-label="Add a model" onClick={onAddModel} />
-          </Tooltip>
-        ) : undefined,
+      actions: ok && onAddModel ? <AddButton label="Add a model" onClick={onAddModel} /> : undefined,
       content: ok ? (
         <ConfigTable
           rows={data.models ?? []}
@@ -246,11 +310,12 @@ function buildSections(
       key: 'tools-resources',
       title: 'Tools & Resources',
       description: 'MCP connectivity: the configured MCP targets, and what they serve through the gateway right now.',
+      actions: ok && onAddTarget ? <AddButton label="Add an MCP server" onClick={onAddTarget} /> : undefined,
       content: ok ? (
         <>
           <ConfigTable
             rows={data.tools ?? []}
-            columns={toolColumns}
+            columns={toolColumns(targetActions)}
             rowKey={(tool) => tool.name}
             emptyText="No MCP targets are configured"
           />
@@ -331,6 +396,7 @@ export default function GatewaysPage() {
   const [testedModel, setTestedModel] = useState<string | null>(null)
   const [inspected, setInspected] = useState<InspectedItem | null>(null)
   const [editedModel, setEditedModel] = useState<EditedModel | null>(null)
+  const [editedTarget, setEditedTarget] = useState<{ target: McpTarget | null } | null>(null)
   const { isAdmin } = useAuth()
   const queryClient = useQueryClient()
   const { data, isLoading, isError } = useQuery({
@@ -342,6 +408,13 @@ export default function GatewaysPage() {
   const { data: modelConfigs } = useQuery({
     queryKey: ['ai-gateways', 'model-configs'],
     queryFn: fetchModelConfigs,
+    enabled: isAdmin,
+    refetchInterval: 30_000,
+    retry: 1,
+  })
+  const { data: mcpTargets } = useQuery({
+    queryKey: ['ai-gateways', 'mcp-targets'],
+    queryFn: fetchMcpTargets,
     enabled: isAdmin,
     refetchInterval: 30_000,
     retry: 1,
@@ -358,6 +431,26 @@ export default function GatewaysPage() {
       void refresh()
     },
   })
+
+  const removeTarget = useMutation({
+    mutationFn: removeMcpTarget,
+    onSuccess: (result) => {
+      message.success(result.applied ? 'MCP server removed' : result.message)
+      void refresh()
+    },
+    onError: (error) => {
+      message.error(errorDetail(error))
+      void refresh()
+    },
+  })
+
+  const targetActions: TargetActions = {
+    configFor: (name) => mcpTargets?.targets.find((target) => target.name === name),
+    onEdit: (target) => setEditedTarget({ target }),
+    onRemove: (name) => removeTarget.mutate(name),
+    removing: removeTarget.isPending ? (removeTarget.variables ?? null) : null,
+    isLastTarget: mcpTargets?.targets.length === 1,
+  }
 
   const modelActions: ModelActions = {
     onTest: setTestedModel,
@@ -379,6 +472,8 @@ export default function GatewaysPage() {
           data,
           modelActions,
           modelConfigs?.configurable ? () => setEditedModel({ config: null }) : null,
+          targetActions,
+          mcpTargets?.configurable ? () => setEditedTarget({ target: null }) : null,
           setInspected,
         )}
       />
@@ -391,6 +486,16 @@ export default function GatewaysPage() {
             setEditedModel(null)
           }}
           onClose={() => setEditedModel(null)}
+        />
+      )}
+      {editedTarget && (
+        <McpTargetModal
+          target={editedTarget.target}
+          onSaved={() => {
+            void refresh()
+            setEditedTarget(null)
+          }}
+          onClose={() => setEditedTarget(null)}
         />
       )}
       {inspected && <McpInspectorModal item={inspected} onClose={() => setInspected(null)} />}

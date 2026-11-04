@@ -28,8 +28,10 @@ Each active model has a **Test** button. It opens a dialog, sends `PING` to the 
 
 The name of each live tool and resource opens an inspector dialog, modelled on the [MCP Inspector](https://github.com/modelcontextprotocol/inspector). The backend runs a full MCP session through the gateway for each call, and only for items the gateway lists at that moment. The **Protocol** tab shows the JSON-RPC exchanges.
 
-- **Tools:** the dialog builds a form from the tool's input schema, with **Edit as JSON** as a fallback. Nothing is sent until **Call tool** is pressed, and only members of `backend.auth.adminGroups` can call tools, because a tool can change things. Closing the dialog doesn't stop a call the server has already started. Results are shown unmasked.
-- **Resources:** any logged-in user can read a resource, and the read starts when the dialog opens. Secret-like text in the response is masked, and binary data other than PNG, JPEG, GIF and WebP images is replaced with its size, because masking can't see into it. HTML is shown as text.
+Only members of `backend.auth.adminGroups` can make these calls, and they see results unmasked. Other logged-in users can see the names, descriptions and tool forms, but not call or read anything. Pattern masking can't reliably find secrets in free text, so it isn't used as an access control here.
+
+- **Tools:** the dialog builds a form from the tool's input schema, with **Edit as JSON** as a fallback. Nothing is sent until **Call tool** is pressed. Closing the dialog doesn't stop a call the server has already started.
+- **Resources:** the read starts when the dialog opens. HTML is shown as text.
 
 | Chart value | Environment variable | Purpose |
 |---|---|---|

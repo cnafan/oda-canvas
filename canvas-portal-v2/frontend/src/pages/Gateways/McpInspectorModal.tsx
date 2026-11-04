@@ -119,11 +119,12 @@ function ToolInspector({ tool }: { tool: McpTool }) {
 }
 
 function ResourceInspector({ resource }: { resource: McpResource }) {
+  const { isAdmin, isLoading: authLoading } = useAuth()
   const { state, run } = useMcpCall()
 
   useEffect(() => {
-    run((signal) => readMcpResource(resource.uri, signal))
-  }, [resource.uri, run])
+    if (isAdmin) run((signal) => readMcpResource(resource.uri, signal))
+  }, [isAdmin, resource.uri, run])
 
   return (
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
@@ -132,12 +133,10 @@ function ResourceInspector({ resource }: { resource: McpResource }) {
         <code style={{ overflowWrap: 'anywhere' }}>{resource.uri}</code>
         {resource.mimeType && <Tag>{resource.mimeType}</Tag>}
       </Space>
-      <CallResult state={state} callMethod="resources/read" runningText="Reading the resource" />
-      {state.status === 'done' && (
-        <span style={{ fontSize: 12, color: colors.textMuted }}>
-          In both tabs, secret-like text is masked and binary data other than images is hidden. HTML isn't rendered.
-        </span>
+      {!authLoading && !isAdmin && (
+        <Alert type="info" showIcon message="Only administrators can read resources." />
       )}
+      <CallResult state={state} callMethod="resources/read" runningText="Reading the resource" />
     </Space>
   )
 }

@@ -53,11 +53,6 @@ function ResourceContents({ item }: { item: Item }) {
       {uri && <div style={labelStyle}>{uri}</div>}
       {typeof item.blob === 'string' ? (
         <Binary mimeType={asText(item.mimeType)} data={item.blob} />
-      ) : typeof item.hiddenBytes === 'number' ? (
-        <span style={{ fontSize: 12, color: colors.textMuted }}>
-          {asText(item.mimeType) || 'Binary content'}, about {item.hiddenBytes.toLocaleString()} bytes. Binary data is
-          hidden.
-        </span>
       ) : (
         <pre style={preStyle}>{asText(item.text)}</pre>
       )}

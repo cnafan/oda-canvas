@@ -92,8 +92,11 @@ _TOOL_ANNOTATION_HINTS = ("readOnlyHint", "destructiveHint", "idempotentHint", "
 _PROTOCOL_VERSION_FORMAT = re.compile(r"[\w.-]{1,32}")
 _SSE_LINE_END = re.compile(r"\r\n|\r|\n")
 _MCP_CALL_METHODS = {"tools": "tools/call", "resources": "resources/read"}
-# Resource data previewed in the page. Other binary data can't be masked, so it's hidden.
-_PREVIEWED_RESOURCE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+# Any logged-in user can see tool schemas. Unlike _SECRET_KEY this ignores case, so API_KEY
+# counts. It also catches maxTokens, which only loses a prefilled value.
+_SECRET_FIELD_NAME = re.compile(
+    r"(?i)passw|pwd|secret|token|credential|authorization|cookie|api[-_]?key|private[-_]?key|access[-_]?key|^key$"
+)
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -191,7 +194,7 @@ def _filter_schema(schema: Any, depth: int = 0, secret: bool = False) -> dict[st
             result[field] = [_filter_schema(item, depth + 1, secret) for item in _as_list(schema[field])]
     if "properties" in schema:
         result["properties"] = {
-            str(name): _filter_schema(item, depth + 1, secret or bool(_SECRET_KEY.search(str(name))))
+            str(name): _filter_schema(item, depth + 1, secret or bool(_SECRET_FIELD_NAME.search(str(name))))
             for name, item in _as_dict(schema["properties"]).items()
         }
     return result
@@ -830,25 +833,6 @@ def call_mcp_tool(name: str, arguments: dict[str, Any], client: httpx.Client | N
     return _mcp_call("tools", "name", name, {"arguments": arguments}, client)
 
 
-def _hide_binary_contents(outcome: dict[str, Any]) -> None:
-    """Replace binary resource data with its size, except for images the page previews."""
-    for exchange in outcome["exchanges"]:
-        if exchange["method"] != "resources/read":
-            continue
-        result = _as_dict(_as_dict(exchange["response"]).get("result"))
-        for item in map(_as_dict, _as_list(result.get("contents"))):
-            blob = item.get("blob")
-            if isinstance(blob, str) and item.get("mimeType") not in _PREVIEWED_RESOURCE_TYPES:
-                del item["blob"]
-                item["hiddenBytes"] = len(blob) * 3 // 4
-
-
 def read_mcp_resource(uri: str, client: httpx.Client | None = None) -> dict[str, Any]:
-    """Read a resource the gateway lists now. Any logged-in user can do this, so mask secret-like
-    text and hide binary data, which masking can't see into."""
-    outcome = _mcp_call("resources", "uri", uri, {}, client)
-    try:
-        _hide_binary_contents(outcome)
-        return _mask_prose_values(outcome)
-    except RecursionError:
-        return {"error": "The MCP endpoint sent a response that can't be used.", "exchanges": []}
+    """Read a resource the gateway lists now, and return the exchanges unmasked for the admin who asked."""
+    return _mcp_call("resources", "uri", uri, {}, client)

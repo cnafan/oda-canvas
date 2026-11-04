@@ -662,6 +662,29 @@ def test_secret_fields_lose_defaults_and_choices_at_every_level():
     assert filtered["properties"]["api_key"]["anyOf"][0] == {"type": "string"}
 
 
+@pytest.mark.parametrize("name", ["API_KEY", "PASSWORD", "pwd", "private_key", "ACCESS_KEY", "TOKEN", "accessKey", "key"])
+def test_secret_field_names_are_found_in_any_case(name):
+    filtered = ai_gateways._input_schema({"properties": {name: {"type": "string", "default": "prod-value", "enum": ["prod-value"]}}})
+
+    assert filtered["properties"][name] == {"type": "string"}
+
+
+def test_ordinary_field_names_keep_their_defaults():
+    filtered = ai_gateways._input_schema({"properties": {"mode": {"type": "string", "default": "fast"}}})
+
+    assert filtered["properties"]["mode"]["default"] == "fast"
+
+
+def test_results_are_returned_unmasked_to_the_admin():
+    secret = "API_KEY=abc Bearer abcdefghijklmnopqrstuvwx"
+    blob = base64.b64encode(b"data").decode()
+    client, _ = mcp_server({"resources/read": {"result": {"contents": [{"uri": "canvas://about", "text": secret, "blob": blob}]}}})
+
+    outcome = ai_gateways.read_mcp_resource("canvas://about", client)
+
+    assert outcome["exchanges"][-1]["response"]["result"]["contents"] == [{"uri": "canvas://about", "text": secret, "blob": blob}]
+
+
 def test_input_schema_gives_up_on_oversized_and_invalid_schemas():
     huge = {"properties": {f"field{i}": {"title": "x" * 200} for i in range(1000)}}
 
@@ -992,33 +1015,6 @@ def test_call_slot_is_always_released(monkeypatch, failure):
     assert slots.acquire(blocking=False)
 
 
-def test_binary_resource_data_is_hidden_except_previewed_images():
-    secret = base64.b64encode(b"API_KEY=prod-secret").decode()
-    png = base64.b64encode(b"\x89PNG").decode()
-    client, _ = mcp_server({"resources/read": {"result": {"contents": [
-        {"uri": "file://.env", "mimeType": "application/octet-stream", "blob": secret},
-        {"uri": "file://svg", "mimeType": "image/svg+xml", "blob": secret},
-        {"uri": "file://none", "blob": secret},
-        {"uri": "file://png", "mimeType": "image/png", "blob": png},
-    ]}}})
-
-    outcome = ai_gateways.read_mcp_resource("canvas://about", client)
-
-    contents = outcome["exchanges"][-1]["response"]["result"]["contents"]
-    assert secret not in json.dumps(outcome)
-    assert contents[0]["hiddenBytes"] == len(secret) * 3 // 4
-    assert contents[3]["blob"] == png
-
-
-def test_binary_tool_results_stay_visible_to_admins():
-    secret = base64.b64encode(b"data").decode()
-    client, _ = mcp_server({"tools/call": {"result": {"content": [
-        {"type": "resource", "resource": {"uri": "x://y", "blob": secret}}
-    ]}}})
-
-    assert secret in json.dumps(ai_gateways.call_mcp_tool("add", {}, client))
-
-
 def test_deeply_nested_result_is_refused():
     client, _ = mcp_server({"tools/call": httpx.Response(
         200, headers={"content-type": "application/json"}, stream=httpx.ByteStream(b"[" * 200_000 + b"]" * 200_000)
@@ -1027,32 +1023,6 @@ def test_deeply_nested_result_is_refused():
     outcome = ai_gateways.call_mcp_tool("add", {}, client)
 
     assert outcome["error"] == "The MCP endpoint sent a response that can't be used."
-
-
-def test_resource_text_is_masked_but_tool_results_are_not():
-    secret = "Bearer abcdefghijklmnopqrstuvwx"
-    client, _ = mcp_server({
-        "resources/read": {"result": {"contents": [{"uri": "canvas://about", "text": secret}]}},
-        "tools/call": {"result": {"content": [{"type": "text", "text": secret}]}},
-    })
-
-    read = ai_gateways.read_mcp_resource("canvas://about", client)
-    called = ai_gateways.call_mcp_tool("add", {}, client)
-
-    assert secret not in json.dumps(read)
-    assert read["exchanges"][-1]["response"]["result"]["contents"][0]["uri"] == "canvas://about"
-    assert secret in json.dumps(called)
-
-
-def test_resource_too_deep_to_mask_is_refused():
-    body = b'{"jsonrpc":"2.0","id":3,"result":' + b"[" * 3000 + b"]" * 3000 + b"}"
-    client, _ = mcp_server({"resources/read": httpx.Response(
-        200, headers={"content-type": "application/json"}, stream=httpx.ByteStream(body)
-    )})
-
-    outcome = ai_gateways.read_mcp_resource("canvas://about", client)
-
-    assert outcome == {"error": "The MCP endpoint sent a response that can't be used.", "exchanges": []}
 
 
 def test_mcp_calls_need_their_url_configured(monkeypatch):
@@ -1098,12 +1068,13 @@ def test_only_admins_can_call_tools(api):
     assert client.post("/api/ai-gateways/mcp/tools/call", json={"name": "add"}).json()["exchanges"] == ["add"]
 
 
-def test_any_logged_in_user_can_read_resources(api):
-    client, _ = api
+def test_only_admins_can_read_resources(api):
+    client, groups = api
+    body = {"uri": "canvas://about"}
 
-    response = client.post("/api/ai-gateways/mcp/resources/read", json={"uri": "canvas://about"})
-
-    assert response.status_code == 200
+    assert client.post("/api/ai-gateways/mcp/resources/read", json=body).status_code == 403
+    groups.append("/canvas-admin")
+    assert client.post("/api/ai-gateways/mcp/resources/read", json=body).json()["exchanges"] == ["canvas://about"]
 
 
 @pytest.mark.parametrize("body", [{"name": ""}, {}, {"name": "add", "arguments": []}])

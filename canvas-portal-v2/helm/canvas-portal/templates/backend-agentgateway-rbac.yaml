@@ -1,0 +1,42 @@
+{{- $namespace := (.Values.backend.aiGateways | default dict).configNamespace }}
+{{- if and .Values.rbac.agentgatewayConfigAccess.enabled $namespace }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "canvas-portal.backend.fullname" . }}-agentgateway-config
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "canvas-portal.backend.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ .Values.backend.aiGateways.configMap | quote }}]
+    verbs: ["get", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ .Values.backend.aiGateways.keysSecret | quote }}]
+    verbs: ["patch"]
+  {{- if .Values.rbac.agentgatewayConfigAccess.nudgePods }}
+  # Annotating the gateway pods makes the kubelet refresh their mounted config right away.
+  # This can't be limited to those pods, and patching a pod can change its image.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "patch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "canvas-portal.backend.fullname" . }}-agentgateway-config
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "canvas-portal.backend.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "canvas-portal.backend.fullname" . }}-agentgateway-config
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "canvas-portal.backend.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -128,6 +128,83 @@ export async function readMcpResource(uri: string, signal: AbortSignal): Promise
   return data
 }
 
+export type ModelProvider = string | { custom: Record<string, unknown> } | { reference: string }
+
+export interface ModelParams {
+  model?: string
+  baseUrl?: string
+  awsRegion?: string
+  bedrockEndpointPreference?: string
+  vertexRegion?: string
+  vertexProject?: string
+  azureResourceName?: string
+  azureResourceType?: string
+  azureApiVersion?: string
+  azureProjectName?: string
+  tokenize?: boolean
+}
+
+/** A model as it is in the gateway's config. API keys are never included. */
+export interface ModelConfig {
+  name: string
+  provider: ModelProvider
+  visibility: string | null
+  passthrough: string | null
+  params: ModelParams
+  apiKeySet: boolean
+  advanced: Record<string, unknown>
+  revision: string
+}
+
+export interface ModelConfigs {
+  configurable: boolean
+  models: ModelConfig[]
+}
+
+export interface ModelConfigInput {
+  name: string
+  provider: ModelProvider
+  visibility: string | null
+  passthrough: string | null
+  params: ModelParams
+  apiKey: string | null
+  removeApiKey: boolean
+  advanced: Record<string, unknown>
+}
+
+export interface ModelChangeResult {
+  applied: boolean
+  message: string
+}
+
+export async function fetchModelConfigs(): Promise<ModelConfigs> {
+  const { data } = await apiClient.get<ModelConfigs>('/api/ai-gateways/models/config')
+  return data
+}
+
+export async function addModelConfig(input: ModelConfigInput): Promise<ModelChangeResult> {
+  const { data } = await apiClient.post<ModelChangeResult>('/api/ai-gateways/models/config', input)
+  return data
+}
+
+export async function updateModelConfig(
+  input: ModelConfigInput,
+  originalName: string,
+  revision: string,
+): Promise<ModelChangeResult> {
+  const { data } = await apiClient.put<ModelChangeResult>('/api/ai-gateways/models/config', {
+    ...input,
+    originalName,
+    revision,
+  })
+  return data
+}
+
+export async function removeModelConfig(name: string): Promise<ModelChangeResult> {
+  const { data } = await apiClient.delete<ModelChangeResult>('/api/ai-gateways/models/config', { params: { name } })
+  return data
+}
+
 export type ModelTestEvent =
   | { type: 'reasoning' | 'content'; text: string }
   | { type: 'done'; finishReason: string | null }

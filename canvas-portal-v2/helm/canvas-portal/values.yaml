@@ -2,6 +2,13 @@ nameOverride: ""
 fullnameOverride: ""
 imagePullSecrets: []
 rbac:
+  # Lets the backend change models in agentgateway's config (backend.aiGateways.configNamespace).
+  agentgatewayConfigAccess:
+    enabled: false
+    # Apply changes in about a second instead of up to about 90s. This lets the backend patch
+    # any pod in the gateway's namespace, including its image, so only enable it if that
+    # namespace holds nothing more sensitive than the gateway.
+    nudgePods: false
   canvasInstallAccess:
     enabled: true
     clusterRoleName: admin
@@ -82,6 +89,14 @@ backend:
     mcpUrl: ""
     # For example http://agentgateway.canvas.svc.cluster.local/v1/chat/completions
     llmUrl: ""
+    # Namespace of the gateway's config, for changing models from the page. Leave empty to
+    # keep models read-only. Also enable rbac.agentgatewayConfigAccess unless the backend
+    # already has this access.
+    configNamespace: ""
+    configMap: agentgateway-config
+    keysSecret: agentgateway-llm-keys
+    keysPath: /llm-keys
+    podSelector: app.kubernetes.io/name=agentgateway-standalone
   auth:
     cookieSecure: false
     cookieSameSite: strict

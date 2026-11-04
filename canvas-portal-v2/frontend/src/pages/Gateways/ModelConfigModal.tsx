@@ -236,7 +236,7 @@ export default function ModelConfigModal({
             label="API key"
             extra={help(
               config?.apiKeySet
-                ? 'A key is set, and is kept if you leave this empty. Changing the provider or base URL needs the key again.'
+                ? 'A key is set, and is kept if you leave this empty. Changing where requests go needs the key again.'
                 : 'Stored in a Kubernetes Secret, and not shown again. If empty, the gateway looks for a key in its environment.',
             )}
           >

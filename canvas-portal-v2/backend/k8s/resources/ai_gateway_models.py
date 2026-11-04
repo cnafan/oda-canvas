@@ -71,6 +71,8 @@ _FIELDS_THAT_KEEP_THE_UPSTREAM = {
     "promptCaching",
     "matches",
 }
+_TLS_FIELDS = {"tls", "backendTLS"}
+_TLS_PATH_FIELDS = {"cert", "key", "root"}
 _change_lock = threading.Lock()
 
 
@@ -321,12 +323,16 @@ def _placeholders(value: Any, path: tuple[Any, ...] = ()) -> set[tuple[Any, ...]
 
 
 def _file_references(value: Any, path: tuple[Any, ...] = ()) -> set[tuple[Any, ...]]:
-    """Each {file: ...} value, with where it is. The gateway reads these from its own pod."""
+    """Each file path in these settings, with where it is. The gateway reads them from its own pod.
+
+    In agentgateway v1.7.0's model schema, these are {file: ...} values and the TLS paths.
+    """
     if isinstance(value, dict):
+        in_tls = bool(path) and path[-1] in _TLS_FIELDS
         found: set[tuple[Any, ...]] = set()
         for key, item in value.items():
-            if key == "file" and isinstance(item, str):
-                found.add((*path, item))
+            if isinstance(item, str) and (key == "file" or (in_tls and key in _TLS_PATH_FIELDS)):
+                found.add((*path, str(key), item))
             found |= _file_references(item, (*path, str(key)))
         return found
     if isinstance(value, list):
@@ -339,7 +345,7 @@ def _refuse_new_file_references(entry: dict[str, Any], existing: dict[str, Any] 
     # service account token or another model's key. Only the file for a key just entered is allowed.
     allowed = _file_references(existing)
     if key_file:
-        allowed = allowed | {("params", "apiKey", f"{get_settings().AGENTGATEWAY_KEYS_PATH}/{key_file}")}
+        allowed = allowed | {("params", "apiKey", "file", f"{get_settings().AGENTGATEWAY_KEYS_PATH}/{key_file}")}
     if _file_references(entry) - allowed:
         raise GatewayRequestRefused(
             422, "File references can't be added here. Enter API keys in the API key field."

@@ -598,3 +598,50 @@ def test_other_secrets_are_not_sent_to_a_new_upstream(core, http, secret):
         )
     assert refused.value.status_code == 422
     assert core.writes == []
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"advanced": {"auth": {"key": {"file": "/var/run/secrets/kubernetes.io/serviceaccount/token"}}}},
+        {"advanced": {"auth": {"key": {"file": "/llm-keys/0123456789abcdef"}}}},
+        {"advanced": {"tls": [{"file": "/etc/passwd"}]}},
+        {"provider": {"custom": {"auth": {"file": "/etc/passwd"}}}},
+    ],
+)
+def test_new_file_references_are_refused(core, http, fields):
+    with pytest.raises(GatewayRequestRefused) as refused:
+        models.save_model(request(**fields), core=core, http=http)
+    assert refused.value.status_code == 422
+    assert core.writes == []
+
+
+def test_a_kept_key_file_can_not_be_moved_to_another_field(core, http):
+    models.save_model(request(apiKey="sk-one"), core=core, http=http)
+    view = models.list_model_configs(core)["models"][1]
+    path = saved_models(core)[1]["params"]["apiKey"]["file"]
+    writes = len(core.writes)
+    with pytest.raises(GatewayRequestRefused) as refused:
+        models.save_model(
+            request(removeApiKey=True, advanced={"auth": {"key": {"file": path}}}),
+            "second",
+            view["revision"],
+            core=core,
+            http=http,
+        )
+    assert refused.value.status_code == 422
+    assert len(core.writes) == writes
+
+
+def test_an_existing_file_reference_stays_on_edit(core, http):
+    auth = {"key": {"file": "/somewhere/else"}}
+    core.text = yaml.safe_dump({"llm": {"models": [{"name": "m", "provider": "openAI", "auth": auth}]}})
+    view = first_view(core)
+    models.save_model(
+        request(name="m", provider="openAI", params={"model": "other"}, advanced=view["advanced"]),
+        "m",
+        view["revision"],
+        core=core,
+        http=http,
+    )
+    assert saved_models(core)[0]["auth"] == auth

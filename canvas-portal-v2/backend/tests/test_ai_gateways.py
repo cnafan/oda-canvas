@@ -198,6 +198,9 @@ def test_sanitize_masks_secret_values(value, expected):
         ("Bearer tokens are accepted here", "Bearer tokens are accepted here"),
         ("Use Bearer abcdefghijklmnop123 to call", "Use <redacted> to call"),
         ("Calls https://u:p@host/x?api_key=abc", "Calls https://<redacted>@host/x?api_key=<redacted>"),
+        ("Calls u:p@ss@host/mcp", "Calls <redacted>@host/mcp"),
+        ("Ask me@example.com for help", "Ask me@example.com for help"),
+        ("Go to /x?next=https://y/?token=abc", "Go to /x?next=https://y/?token=<redacted>"),
     ],
 )
 def test_mcp_descriptions_stay_readable_but_lose_secrets(description, expected):
@@ -208,13 +211,19 @@ def test_mcp_text_is_limited_in_length():
     assert len(ai_gateways._mcp_description("x" * 100_000)) == ai_gateways.MAX_MCP_TEXT_LENGTH
 
 
-def test_masking_long_hostile_input_is_fast():
-    hostile = "?" + "key" * 300_000
-
+@pytest.mark.parametrize("hostile", ["?" + "key" * 300_000, "a:" * 500_000, "?a=" * 300_000, "a b " * 250_000])
+def test_masking_long_hostile_input_is_fast(hostile):
     start = time.monotonic()
     sanitize(hostile)
+    ai_gateways._mcp_description(hostile)
 
-    assert time.monotonic() - start < 1
+    assert time.monotonic() - start < 2
+
+
+def test_secret_past_the_length_limit_is_masked_before_the_cut():
+    text = "x " * (ai_gateways.MAX_MCP_TEXT_LENGTH // 2 - 5) + "Bearer abcdefghijklmnop123"
+
+    assert "abcdef" not in ai_gateways._mcp_description(text)
 
 
 def test_summary_ok_sends_the_key_and_includes_runtime_and_discovery():

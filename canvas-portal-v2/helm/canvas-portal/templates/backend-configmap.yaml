@@ -31,6 +31,7 @@ data:
   CONFORMANCE_KEYCLOAK_REALM: {{ default .Values.backend.env.KEYCLOAK_REALM (index $canvasBDDEnv "KEYCLOAK_REALM") | quote }}
   AGENTGATEWAY_CONFIG_URL: {{ ((.Values.backend.aiGateways | default dict).configUrl | default "") | quote }}
   AGENTGATEWAY_MCP_URL: {{ ((.Values.backend.aiGateways | default dict).mcpUrl | default "") | quote }}
+  AGENTGATEWAY_LLM_URL: {{ ((.Values.backend.aiGateways | default dict).llmUrl | default "") | quote }}
   OBSERVABILITY_PROVIDERS_JSON: {{ ((.Values.backend.observability).providers | default list) | toJson | quote }}
   # JSON-encoded list of namespaces the portal is allowed to install helm
   # releases into. Sourced from rbac.canvasInstallAccess.targetNamespaces so

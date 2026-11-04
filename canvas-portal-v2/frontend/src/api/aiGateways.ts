@@ -1,4 +1,6 @@
 import apiClient from './client'
+import { getApiBaseUrl } from '@/config'
+import { getToken, logout, refreshAccessToken } from '@/lib/auth'
 
 export type AiGatewayState = 'ok' | 'not_deployed' | 'unauthorized' | 'unreachable'
 
@@ -55,4 +57,59 @@ export interface AiGatewaysSummary {
 export async function fetchAiGateways(): Promise<AiGatewaysSummary> {
   const { data } = await apiClient.get<AiGatewaysSummary>('/api/ai-gateways')
   return data
+}
+
+export type ModelTestEvent =
+  | { type: 'reasoning' | 'content'; text: string }
+  | { type: 'done'; finishReason: string | null }
+  | { type: 'error'; message: string }
+
+function postModelTest(model: string, signal: AbortSignal): Promise<Response> {
+  const token = getToken()
+  return fetch(`${getApiBaseUrl()}/api/ai-gateways/models/test`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ model }),
+    signal,
+  })
+}
+
+async function requestModelTest(model: string, signal: AbortSignal): Promise<Response> {
+  const response = await postModelTest(model, signal)
+  // fetch skips the apiClient interceptor, so refresh an expired session here.
+  if (response.status !== 401) return response
+  if (await refreshAccessToken()) return postModelTest(model, signal)
+  logout()
+  return response
+}
+
+/** Sends PING to a model and calls onEvent for each event. Abort the signal to stop it. */
+export async function streamModelTest(
+  model: string,
+  onEvent: (event: ModelTestEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const response = await requestModelTest(model, signal)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new Error(typeof body?.detail === 'string' ? body.detail : `Request failed: HTTP ${response.status}`)
+  }
+  if (!response.body) throw new Error('The response has no content')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let pending = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) return
+    // An event can arrive split across reads, so only parse complete lines.
+    const lines = (pending + decoder.decode(value, { stream: true })).split('\n')
+    pending = lines.pop() ?? ''
+    for (const line of lines) {
+      if (line) onEvent(JSON.parse(line) as ModelTestEvent)
+    }
+  }
 }

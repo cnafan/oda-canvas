@@ -9,6 +9,7 @@ import re
 import socket
 import threading
 import time
+from collections.abc import AsyncIterator, Iterator
 from typing import Any, NamedTuple
 from urllib.parse import urljoin, urlsplit
 
@@ -21,6 +22,13 @@ MCP_ACCEPT = "application/json, text/event-stream"
 MAX_MCP_RESPONSE_BYTES = 1024 * 1024
 MCP_DISCOVERY_DEADLINE_SECONDS = 8.0
 MAX_MCP_TEXT_LENGTH = 2048
+
+LLM_TEST_PROMPT = "PING"
+# Models that reason first can use most of this before replying: 64 nearly cut off a PING.
+LLM_TEST_MAX_TOKENS = 256
+LLM_TEST_TIMEOUT = httpx.Timeout(10.0, read=60.0)
+LLM_TEST_DEADLINE_SECONDS = 120.0
+MAX_LLM_TEST_RESPONSE_BYTES = 1024 * 1024
 
 # Case-sensitive `[Tt]oken$`, so rate-limit fields such as maxTokens stay visible.
 _SECRET_KEY = re.compile(
@@ -439,3 +447,133 @@ def get_ai_gateways_summary(client: httpx.Client | None = None) -> dict[str, Any
     # trust_env=False: cluster addresses must never go through a proxy from the environment.
     with httpx.Client(timeout=4.0, trust_env=False, follow_redirects=False) as owned:
         return _summary(owned)
+
+
+class ModelTestRefused(Exception):
+    """The test can't start. The message is safe to show to the user."""
+
+    def __init__(self, status_code: int, message: str):
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+
+
+def _llm_client(transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:
+    # trust_env=False: cluster addresses must never go through a proxy from the environment.
+    return httpx.AsyncClient(
+        transport=transport, timeout=LLM_TEST_TIMEOUT, trust_env=False, follow_redirects=False
+    )
+
+
+async def ensure_model_is_active(model: str, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    """Only models the gateway has active can be tested, so this can't reach anything else."""
+    settings = get_settings()
+    if not settings.AGENTGATEWAY_CONFIG_URL or not settings.AGENTGATEWAY_LLM_URL:
+        raise ModelTestRefused(503, "Model testing isn't configured.")
+    try:
+        async with _llm_client(transport) as client:
+            response = await client.get(
+                settings.AGENTGATEWAY_CONFIG_URL,
+                headers={"Authorization": f"Bearer {settings.AGENTGATEWAY_API_KEY}"},
+            )
+        response.raise_for_status()
+        models = parse_config_dump(response.json())["models"]
+    except (httpx.HTTPError, ValueError) as exc:
+        raise ModelTestRefused(502, "Couldn't read the agentgateway configuration.") from exc
+    if not any(m["name"] == model and m["status"] == "active" for m in models):
+        raise ModelTestRefused(404, "This model isn't active on the gateway.")
+
+
+def _event(**fields: Any) -> bytes:
+    return (json.dumps(fields) + "\n").encode()
+
+
+def _llm_line_events(line: bytes) -> Iterator[dict[str, Any]]:
+    """Read one server-sent event line, keeping only the text and how it finished."""
+    text = line.decode("utf-8", "replace").strip()
+    if not text.startswith("data:"):
+        return
+    data = text[5:].strip()
+    if data == "[DONE]":
+        yield {"type": "end"}
+        return
+    try:
+        chunk = _as_dict(json.loads(data))
+    except ValueError:
+        yield {"type": "error", "message": "The model sent an invalid stream."}
+        return
+    if "error" in chunk:
+        # Fixed text: the upstream's error can quote its address or request details.
+        yield {"type": "error", "message": "The model reported an error."}
+        return
+    for choice in map(_as_dict, _as_list(chunk.get("choices"))):
+        delta = _as_dict(choice.get("delta"))
+        reasoning = delta.get("reasoning") or delta.get("reasoning_content")
+        if isinstance(reasoning, str):
+            yield {"type": "reasoning", "text": reasoning}
+        if isinstance(delta.get("content"), str) and delta["content"]:
+            yield {"type": "content", "text": delta["content"]}
+        if isinstance(choice.get("finish_reason"), str):
+            yield {"type": "finish", "reason": choice["finish_reason"]}
+
+
+def _llm_status_message(status_code: int) -> str:
+    if status_code == 429:
+        return "The gateway's rate limit was reached. Try again in a minute."
+    return f"agentgateway returned HTTP {status_code}."
+
+
+async def stream_model_test(
+    model: str, transport: httpx.AsyncBaseTransport | None = None
+) -> AsyncIterator[bytes]:
+    """Send PING to a model through the gateway, and yield its reply as NDJSON events.
+
+    Events are `reasoning` and `content` with a `text`, then one `done` or `error`.
+    Closing this generator closes the upstream request, which stops the generation.
+    """
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": LLM_TEST_PROMPT}],
+        "stream": True,
+        "max_tokens": LLM_TEST_MAX_TOKENS,
+    }
+    # Count raw bytes and refuse compression, so the limit can't be passed by decompressing.
+    headers = {"Accept": "text/event-stream", "Accept-Encoding": "identity"}
+    deadline = time.monotonic() + LLM_TEST_DEADLINE_SECONDS
+    try:
+        async with _llm_client(transport) as client, client.stream(
+            "POST", get_settings().AGENTGATEWAY_LLM_URL, json=payload, headers=headers
+        ) as response:
+            if response.status_code != 200:
+                yield _event(type="error", message=_llm_status_message(response.status_code))
+                return
+            if response.headers.get("content-encoding", "identity").lower() != "identity":
+                yield _event(type="error", message="The model sent a compressed response.")
+                return
+            finish_reason = None
+            pending = b""
+            received = 0
+            async for chunk in response.aiter_raw():
+                received += len(chunk)
+                if received > MAX_LLM_TEST_RESPONSE_BYTES or time.monotonic() > deadline:
+                    yield _event(type="error", message="The reply was too long, so the test stopped.")
+                    return
+                *lines, pending = (pending + chunk).split(b"\n")
+                for line in lines:
+                    for event in _llm_line_events(line):
+                        if event["type"] == "finish":
+                            finish_reason = event["reason"]
+                        elif event["type"] == "end":
+                            yield _event(type="done", finishReason=finish_reason)
+                            return
+                        else:
+                            yield _event(**event)
+                            if event["type"] == "error":
+                                return
+    except httpx.HTTPError as exc:
+        yield _event(type="error", message=f"Request failed: {type(exc).__name__}.")
+        return
+    if finish_reason:
+        yield _event(type="done", finishReason=finish_reason)
+    else:
+        yield _event(type="error", message="The stream ended before the model finished.")

@@ -92,11 +92,6 @@ _TOOL_ANNOTATION_HINTS = ("readOnlyHint", "destructiveHint", "idempotentHint", "
 _PROTOCOL_VERSION_FORMAT = re.compile(r"[\w.-]{1,32}")
 _SSE_LINE_END = re.compile(r"\r\n|\r|\n")
 _MCP_CALL_METHODS = {"tools": "tools/call", "resources": "resources/read"}
-# Any logged-in user can see tool schemas. Unlike _SECRET_KEY this ignores case, so API_KEY
-# counts. It also catches maxTokens, which only loses a prefilled value.
-_SECRET_FIELD_NAME = re.compile(
-    r"(?i)passw|pwd|secret|token|credential|authorization|cookie|api[-_]?key|private[-_]?key|access[-_]?key|^key$"
-)
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -162,12 +157,11 @@ def _is_json_scalar(value: Any) -> bool:
     return isinstance(value, (str, int, float, bool)) or value is None
 
 
-def _filter_schema(schema: Any, depth: int = 0, secret: bool = False) -> dict[str, Any]:
+def _filter_schema(schema: Any, depth: int = 0) -> dict[str, Any]:
     """Keep the parts of an MCP schema that the form reads.
 
     This doesn't use sanitize(): it would replace the schema of a field named `password`
-    with a string, and the form for that field would be lost. A secret field keeps its
-    shape, but loses any default or choices at every level, as they could hold real values.
+    with a string, and the form for that field would be lost.
     """
     if not isinstance(schema, dict) or depth > MAX_MCP_SCHEMA_DEPTH:
         return {}
@@ -183,21 +177,47 @@ def _filter_schema(schema: Any, depth: int = 0, secret: bool = False) -> dict[st
     required = _as_list(schema.get("required"))
     if required and all(isinstance(name, str) for name in required):
         result["required"] = required
-    if not secret:
-        if "default" in schema and _is_json_scalar(schema["default"]):
-            result["default"] = _mask_prose_values(schema["default"])
-        choices = _as_list(schema.get("enum"))
-        if choices and all(_is_json_scalar(choice) for choice in choices):
-            result["enum"] = _mask_prose_values(choices)
+    if "default" in schema and _is_json_scalar(schema["default"]):
+        result["default"] = _mask_prose_values(schema["default"])
+    choices = _as_list(schema.get("enum"))
+    if choices and all(_is_json_scalar(choice) for choice in choices):
+        result["enum"] = _mask_prose_values(choices)
     for field in ("anyOf", "oneOf"):
         if field in schema:
-            result[field] = [_filter_schema(item, depth + 1, secret) for item in _as_list(schema[field])]
+            result[field] = [_filter_schema(item, depth + 1) for item in _as_list(schema[field])]
     if "properties" in schema:
         result["properties"] = {
-            str(name): _filter_schema(item, depth + 1, secret or bool(_SECRET_FIELD_NAME.search(str(name))))
+            str(name): _filter_schema(item, depth + 1)
             for name, item in _as_dict(schema["properties"]).items()
         }
     return result
+
+
+def _without_schema_values(schema: dict[str, Any]) -> dict[str, Any]:
+    """Drop defaults and choices at every level. The result is bounded by _filter_schema's depth limit."""
+    result = {key: value for key, value in schema.items() if key not in ("default", "enum")}
+    for field in ("anyOf", "oneOf"):
+        if field in result:
+            result[field] = [_without_schema_values(item) for item in result[field]]
+    if "properties" in result:
+        result["properties"] = {name: _without_schema_values(item) for name, item in result["properties"].items()}
+    return result
+
+
+def without_schema_values(summary: dict[str, Any]) -> dict[str, Any]:
+    """The summary for someone who can't call tools, who has no use for a schema's values.
+
+    Defaults and choices can hold real values such as keys, and no list of field names
+    can reliably find them. This copies what it changes, because discovery is cached.
+    """
+    discovered = summary.get("discovered")
+    if not discovered:
+        return summary
+    tools = [
+        {**tool, "inputSchema": tool["inputSchema"] and _without_schema_values(tool["inputSchema"])}
+        for tool in discovered["tools"]
+    ]
+    return {**summary, "discovered": {**discovered, "tools": tools}}
 
 
 def _input_schema(schema: Any) -> dict[str, Any] | None:

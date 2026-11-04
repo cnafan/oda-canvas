@@ -633,7 +633,7 @@ def test_input_schema_keeps_fields_with_secret_like_names():
         "type": "object",
         "required": ["password"],
         "properties": {
-            "password": {"type": "string", "default": "hunter2", "description": "Bearer abcdefghijklmnopqrstuvwx"},
+            "password": {"type": "string", "description": "Bearer abcdefghijklmnopqrstuvwx"},
             "count": {"type": "integer", "minimum": 1, "default": 2},
             "mode": {"anyOf": [{"enum": ["a", "b"]}, {"type": "null"}]},
         },
@@ -647,32 +647,70 @@ def test_input_schema_keeps_fields_with_secret_like_names():
     assert filtered["properties"]["count"] == {"type": "integer", "minimum": 1, "default": 2}
     assert filtered["properties"]["mode"]["anyOf"][0] == {"enum": ["a", "b"]}
     text = json.dumps(filtered)
-    assert "hunter2" not in text and "abcdefghijklmnop" not in text and "drop me" not in text
+    assert "abcdefghijklmnop" not in text and "drop me" not in text
 
 
-def test_secret_fields_lose_defaults_and_choices_at_every_level():
-    schema = {"properties": {
-        "api_key": {"anyOf": [{"type": "string", "default": "prod-key-123"}, {"enum": ["prod-key-456"]}]},
-        "settings": {"properties": {"token": {"oneOf": [{"type": "string", "default": "prod-key-789"}]}}},
-    }}
-
-    filtered = ai_gateways._input_schema(schema)
-
-    assert "prod-key" not in json.dumps(filtered)
-    assert filtered["properties"]["api_key"]["anyOf"][0] == {"type": "string"}
-
-
-@pytest.mark.parametrize("name", ["API_KEY", "PASSWORD", "pwd", "private_key", "ACCESS_KEY", "TOKEN", "accessKey", "key"])
-def test_secret_field_names_are_found_in_any_case(name):
-    filtered = ai_gateways._input_schema({"properties": {name: {"type": "string", "default": "prod-value", "enum": ["prod-value"]}}})
-
-    assert filtered["properties"][name] == {"type": "string"}
+VALUES_SCHEMA = {
+    "type": "object",
+    "required": ["passphrase"],
+    "properties": {
+        "passphrase": {"type": "string", "default": "prod-value-1", "title": "Passphrase"},
+        "dsn": {"anyOf": [{"type": "string", "default": "prod-value-2"}, {"enum": ["prod-value-3"]}]},
+        "nested": {"properties": {"inner": {"oneOf": [{"enum": ["prod-value-4"], "default": "prod-value-5"}]}}},
+    },
+}
 
 
-def test_ordinary_field_names_keep_their_defaults():
-    filtered = ai_gateways._input_schema({"properties": {"mode": {"type": "string", "default": "fast"}}})
+def _summary_with_values():
+    def handler(request):
+        if request.url.path != "/mcp":
+            return gateway(request)
+        payload = json.loads(request.content)
+        result = {"tools": [{"name": "t", "inputSchema": VALUES_SCHEMA}, {"name": "u"}]}
+        if payload["method"] != "tools/list":
+            result = {"resources": []}
+        return streamed(json.dumps({"jsonrpc": "2.0", "id": 1, "result": result}))
 
-    assert filtered["properties"]["mode"]["default"] == "fast"
+    return get_ai_gateways_summary(client_for(handler))
+
+
+def test_schema_values_are_left_out_at_every_level_and_the_shape_kept():
+    summary = _summary_with_values()
+
+    stripped = ai_gateways.without_schema_values(summary)
+
+    assert "prod-value" not in json.dumps(stripped)
+    schema = stripped["discovered"]["tools"][0]["inputSchema"]
+    assert schema["required"] == ["passphrase"]
+    assert schema["properties"]["passphrase"] == {"type": "string", "title": "Passphrase"}
+    assert stripped["discovered"]["tools"][1]["inputSchema"] is None
+
+
+def test_stripping_schema_values_leaves_the_cached_summary_alone():
+    summary = _summary_with_values()
+
+    ai_gateways.without_schema_values(summary)
+
+    assert "prod-value-1" in json.dumps(summary)
+    assert "prod-value-1" in json.dumps(_summary_with_values())
+
+
+def test_stripping_schema_values_without_discovery_is_harmless():
+    summary = {"state": "ok", "discovered": None}
+
+    assert ai_gateways.without_schema_values(summary) == summary
+
+
+def test_page_data_has_schema_values_only_for_admins(api, monkeypatch):
+    from routers import ai_gateways as router_module
+
+    client, groups = api
+    summary = _summary_with_values()
+    monkeypatch.setattr(router_module, "get_ai_gateways_summary", lambda: summary)
+
+    assert "prod-value" not in client.get("/api/ai-gateways").text
+    groups.append("/canvas-admin")
+    assert "prod-value-1" in client.get("/api/ai-gateways").text
 
 
 def test_results_are_returned_unmasked_to_the_admin():

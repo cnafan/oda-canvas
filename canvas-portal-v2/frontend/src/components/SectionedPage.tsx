@@ -8,6 +8,8 @@ export interface PageSection {
   description: string
   /** Optional link to an existing page that already covers this section. */
   link?: { to: string; label: string }
+  /** Replaces the placeholder. The link, if any, is shown underneath. */
+  content?: React.ReactNode
 }
 
 interface SectionedPageProps {
@@ -15,6 +17,9 @@ interface SectionedPageProps {
   description: string
   icon: React.ReactNode
   sections: PageSection[]
+  hideWipBadge?: boolean
+  /** Shown between the page header and the sections. */
+  banner?: React.ReactNode
 }
 
 function WipBadge() {
@@ -40,7 +45,7 @@ function WipBadge() {
 }
 
 /** Page header followed by one stacked card per section. */
-export default function SectionedPage({ title, description, icon, sections }: SectionedPageProps) {
+export default function SectionedPage({ title, description, icon, sections, hideWipBadge, banner }: SectionedPageProps) {
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -65,8 +70,10 @@ export default function SectionedPage({ title, description, icon, sections }: Se
             <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>{description}</p>
           </div>
         </div>
-        <WipBadge />
+        {!hideWipBadge && <WipBadge />}
       </div>
+
+      {banner && <div style={{ marginBottom: 16 }}>{banner}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {sections.map((section) => (
@@ -85,24 +92,35 @@ export default function SectionedPage({ title, description, icon, sections }: Se
             <p style={{ fontSize: 12, color: colors.textSecondary, margin: '0 0 14px', lineHeight: 1.55 }}>
               {section.description}
             </p>
-            <div
-              style={{
-                border: `1px dashed ${colors.border}`,
-                borderRadius: 10,
-                padding: 14,
-                background: colors.surfaceSubtle,
-                fontSize: 12,
-                color: colors.textMuted,
-              }}
-            >
-              Nothing to show yet.
-              {section.link && (
-                <>
-                  {' '}
-                  <Link to={section.link.to}>{section.link.label}</Link>
-                </>
-              )}
-            </div>
+            {section.content ? (
+              <>
+                {section.content}
+                {section.link && (
+                  <div style={{ fontSize: 12, marginTop: 12 }}>
+                    <Link to={section.link.to}>{section.link.label}</Link>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div
+                style={{
+                  border: `1px dashed ${colors.border}`,
+                  borderRadius: 10,
+                  padding: 14,
+                  background: colors.surfaceSubtle,
+                  fontSize: 12,
+                  color: colors.textMuted,
+                }}
+              >
+                Nothing to show yet.
+                {section.link && (
+                  <>
+                    {' '}
+                    <Link to={section.link.to}>{section.link.label}</Link>
+                  </>
+                )}
+              </div>
+            )}
           </section>
         ))}
       </div>

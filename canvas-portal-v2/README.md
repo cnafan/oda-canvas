@@ -20,6 +20,24 @@ A web management portal for an ODA Canvas. It is the successor to the Spring Boo
 - **Cluster overview and observability:** a cluster summary, plus Grafana and Prometheus links if configured.
 - **Authentication:** Keycloak or Entra ID (`IDM_PROVIDER`). The backend validates the JWT and the browser keeps a refresh cookie.
 
+## AI Gateways page
+
+`/gateways` shows the active configuration of [agentgateway](../charts/agentgateway/README.md) under Models, Tools & Resources, Agents and Traffic Management. The backend reads it from `/config_dump` and returns only whitelisted fields from `GET /api/ai-gateways`. Any logged-in user can see this page, including upstream hostnames.
+
+| Chart value | Environment variable | Purpose |
+|---|---|---|
+| `backend.aiGateways.configUrl` | `AGENTGATEWAY_CONFIG_URL` | agentgateway's `/config_dump` URL on port 8081 |
+| `backend.aiGateways.mcpUrl` | `AGENTGATEWAY_MCP_URL` | The gateway's `/mcp` URL, for listing live tools and resources |
+| `backend.secretEnv.AGENTGATEWAY_API_KEY` | `AGENTGATEWAY_API_KEY` | The `key` value from the `agentgateway-portal-key` secret |
+
+Run the backend tests:
+
+```bash
+cd backend
+uv venv && uv pip install -r requirements-dev.txt
+.venv/bin/pytest
+```
+
 ## Prerequisites
 
 - A running ODA Canvas. The `canvas` namespace must exist for gateway detection.

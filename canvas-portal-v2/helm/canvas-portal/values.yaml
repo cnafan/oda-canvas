@@ -74,6 +74,12 @@ backend:
     allowedChartSources: []
     # - https://rj-acc.github.io/CanvasPortalTMF
     # - https://charts.tmforum.org
+  # Where the AI Gateways page reads agentgateway. Leave empty if it isn't deployed.
+  aiGateways:
+    # For example http://agentgateway.canvas.svc.cluster.local:8081/config_dump
+    configUrl: ""
+    # For example http://agentgateway.canvas.svc.cluster.local/mcp
+    mcpUrl: ""
   auth:
     cookieSecure: false
     cookieSameSite: strict
@@ -162,6 +168,9 @@ backend:
     ENTRAID_CLIENT_SECRET: ""
     K8S_REMOTE_SA_TOKEN: ""
     K8S_REMOTE_CA_CERT: ""
+    # API key for agentgateway's config port: the `key` value in the
+    # agentgateway-portal-key secret, in the namespace where agentgateway runs.
+    AGENTGATEWAY_API_KEY: ""
   podAnnotations: {}
   podLabels: {}
   resources: {}

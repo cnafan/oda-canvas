@@ -6,3 +6,8 @@ __pycache__/
 *.pyd
 *.log
 *.tmp
+tests/
+requirements-dev.txt
+pytest.ini
+.venv/
+.pytest_cache/

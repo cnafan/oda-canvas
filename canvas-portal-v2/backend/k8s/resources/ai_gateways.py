@@ -17,13 +17,24 @@ from cachetools import TTLCache
 from config import get_settings
 
 MCP_ACCEPT = "application/json, text/event-stream"
-MAX_ERROR_LENGTH = 500
+MAX_MCP_RESPONSE_BYTES = 1024 * 1024
 
 # Case-sensitive `[Tt]oken$`, so rate-limit fields such as maxTokens stay visible.
 _SECRET_KEY = re.compile(
     r"[Ss]ecret|[Pp]assword|[Aa]pi[-_]?[Kk]ey|[Aa]uthorization|[Cc]ookie|[Cc]redential|[Tt]oken$|^key$"
 )
-_SECRET_VALUE = re.compile(r"Bearer\s+\S+|\bsk-[A-Za-z0-9_-]{8,}|(?<=://)[^/@\s]+(?=@)")
+_SECRET_VALUE = re.compile(
+    r"(?i)\b(?:bearer|basic)\s+\S+"  # Authorization values
+    r"|\bsk-[A-Za-z0-9_-]{8,}"  # Provider API keys
+    r"|(?<=://)[^/@\s]+(?=@)"  # URL userinfo
+    r"|^[^/@\s]+(?=@)"  # Userinfo on a host with no scheme
+    r"|(?<=[?&]key=)[^&\s]+"  # Secret-like query parameters
+    r"|(?<=[?&]token=)[^&\s]+"
+    r"|(?<=[?&]secret=)[^&\s]+"
+    r"|(?<=[?&]password=)[^&\s]+"
+    r"|(?<=[?&]api_key=)[^&\s]+"
+    r"|(?<=[?&]apikey=)[^&\s]+"
+)
 
 # Policies shown elsewhere on the page, or with nothing to show.
 _NON_TRAFFIC_POLICIES = {"a2a", "budget"}
@@ -241,24 +252,27 @@ def parse_config_dump(dump: Any) -> dict[str, Any]:
     })
 
 
-def _parse_mcp_response(response: httpx.Response) -> dict[str, Any]:
+def _parse_mcp_body(body: str, content_type: str) -> dict[str, Any]:
     """Read a JSON-RPC result from a plain JSON or a single-event SSE response."""
-    response.raise_for_status()
-    if "text/event-stream" in response.headers.get("content-type", ""):
-        for line in response.text.splitlines():
+    if "text/event-stream" in content_type:
+        for line in body.splitlines():
             if line.startswith("data:"):
                 return _as_dict(_as_dict(json.loads(line[5:])).get("result"))
         return {}
-    return _as_dict(_as_dict(response.json()).get("result"))
+    return _as_dict(_as_dict(json.loads(body)).get("result"))
 
 
 def _mcp_list(client: httpx.Client, url: str, method: str) -> dict[str, Any]:
-    response = client.post(
-        url,
-        json={"jsonrpc": "2.0", "id": 1, "method": method},
-        headers={"Accept": MCP_ACCEPT},
-    )
-    return _parse_mcp_response(response)
+    payload = {"jsonrpc": "2.0", "id": 1, "method": method}
+    with client.stream("POST", url, json=payload, headers={"Accept": MCP_ACCEPT}) as response:
+        response.raise_for_status()
+        # Tool lists come from upstream MCP servers, so bound what's read from them.
+        body = bytearray()
+        for chunk in response.iter_bytes():
+            body += chunk
+            if len(body) > MAX_MCP_RESPONSE_BYTES:
+                raise ValueError("MCP response is too large")
+        return _parse_mcp_body(body.decode("utf-8", "replace"), response.headers.get("content-type", ""))
 
 
 def _discover_mcp(client: httpx.Client, url: str) -> dict[str, Any]:
@@ -292,9 +306,15 @@ def _discover_mcp(client: httpx.Client, url: str) -> dict[str, Any]:
 
 def _cached_discovery(client: httpx.Client, url: str) -> dict[str, Any]:
     with _discovery_lock:
-        if "result" not in _discovery_cache:
-            _discovery_cache["result"] = _discover_mcp(client, url)
-        return _discovery_cache["result"]
+        cached = _discovery_cache.get("result")
+    if cached is not None:
+        return cached
+    # Fetch without the lock, so a slow upstream can't block other requests.
+    # Concurrent misses may each fetch, which is harmless for two read-only calls.
+    result = _discover_mcp(client, url)
+    with _discovery_lock:
+        _discovery_cache["result"] = result
+    return result
 
 
 def _read_runtime(client: httpx.Client, config_url: str, headers: dict[str, str]) -> dict[str, Any] | None:
@@ -305,11 +325,9 @@ def _read_runtime(client: httpx.Client, config_url: str, headers: dict[str, str]
         reload_state = _as_dict(_as_dict(response.json()).get("configReload"))
     except (httpx.HTTPError, ValueError):
         return None
-    last_error = reload_state.get("lastError")
-    return {
-        "synchronized": bool(reload_state.get("synchronized")),
-        "lastError": str(last_error)[:MAX_ERROR_LENGTH] if last_error else None,
-    }
+    # Leave out lastError: it's free text that can quote the config, and any logged-in
+    # user can read this response. The detail is in the gateway's logs.
+    return {"synchronized": bool(reload_state.get("synchronized"))}
 
 
 def _host_resolves(url: str) -> bool:
@@ -351,7 +369,7 @@ def _summary(client: httpx.Client) -> dict[str, Any]:
         "state": "ok",
         "message": "",
         **parse_config_dump(dump),
-        "runtime": sanitize(_read_runtime(client, url, headers)),
+        "runtime": _read_runtime(client, url, headers),
         **sanitize(_cached_discovery(client, settings.AGENTGATEWAY_MCP_URL)),
     }
 

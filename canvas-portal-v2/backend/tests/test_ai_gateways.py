@@ -45,7 +45,7 @@ def gateway(request, mcp_content_type="application/json"):
     if request.url.path == "/config_dump":
         return httpx.Response(200, json=DUMP)
     if request.url.path == "/api/runtime":
-        return httpx.Response(200, json={"configReload": {"synchronized": True, "lastError": None}})
+        return httpx.Response(200, json={"configReload": {"synchronized": False, "lastError": "bad value: hunter2"}})
     return mcp_reply(request, mcp_content_type)
 
 
@@ -166,6 +166,20 @@ def test_sanitize_masks_secrets_but_not_token_counts():
     }
 
 
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("basic dXNlcjpwYXNz", "<redacted>"),
+        ("BEARER abc", "<redacted>"),
+        ("user:pw@host:8000/mcp", "<redacted>@host:8000/mcp"),
+        ("http://host/mcp?api_key=abc&x=1", "http://host/mcp?api_key=<redacted>&x=1"),
+        ("host.example:8000/v1", "host.example:8000/v1"),
+    ],
+)
+def test_sanitize_masks_secret_values(value, expected):
+    assert sanitize(value) == expected
+
+
 def test_summary_ok_sends_the_key_and_includes_runtime_and_discovery():
     seen = []
 
@@ -177,7 +191,8 @@ def test_summary_ok_sends_the_key_and_includes_runtime_and_discovery():
 
     assert summary["state"] == "ok"
     assert seen[0] == "Bearer test-key"
-    assert summary["runtime"] == {"synchronized": True, "lastError": None}
+    assert summary["runtime"] == {"synchronized": False}
+    assert "hunter2" not in json.dumps(summary)
     assert summary["discovered"]["tools"] == [{"name": "echo", "description": "Echo"}]
     assert summary["discovered"]["resources"][0]["uri"] == "canvas://about"
     assert "test-key" not in json.dumps(summary)
@@ -202,6 +217,19 @@ def test_discovery_is_cached():
     get_ai_gateways_summary(client)
 
     assert len(calls) == 2  # tools/list and resources/list, once each
+
+
+def test_discovery_rejects_oversized_responses():
+    def handler(request):
+        if request.url.path == "/mcp":
+            return httpx.Response(200, content=b"x" * (ai_gateways.MAX_MCP_RESPONSE_BYTES + 1))
+        return gateway(request)
+
+    summary = get_ai_gateways_summary(client_for(handler))
+
+    assert summary["state"] == "ok"
+    assert summary["discovered"] is None
+    assert summary["discoveryError"] == "ValueError"
 
 
 def test_discovery_failure_leaves_config_available():

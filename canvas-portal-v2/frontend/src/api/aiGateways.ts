@@ -47,7 +47,7 @@ export interface AiGatewaysSummary {
   agents?: AiGatewayAgent[]
   traffic?: AiGatewayTrafficPolicy[]
   warnings?: string[]
-  runtime?: { synchronized: boolean; lastError: string | null } | null
+  runtime?: { synchronized: boolean } | null
   discovered?: AiGatewayDiscovery | null
   discoveryError?: string | null
 }

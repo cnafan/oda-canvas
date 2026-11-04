@@ -101,7 +101,7 @@ export interface AgentDetail {
   registry?: RegistryRef
 }
 
-export type AuthType = 'token' | 'basic' | 'oauth'
+export type AuthType = 'none' | 'token' | 'basic' | 'oauth'
 export type GrantType = 'client_credentials' | 'password'
 
 export interface RegistrySource {

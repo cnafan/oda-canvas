@@ -199,6 +199,9 @@ Each registry takes a URL and one of these credentials:
 | Token | `Authorization: Bearer` | What Registry Center accepts directly. Without the `nms_oss` role, only published agents are listed. |
 | Username and password | `Authorization: Basic` | Registry Center rejects Basic, so this only works through a proxy or another service that accepts it. |
 | OAuth token URL | Bearer token issued by your IAM | Uses the client credentials or password grant. The portal requests and renews the token. |
+| No credentials | Nothing | For registries that don't check who is calling, such as some demo installs. |
+
+To add a Registry Center behind an OpenAN Portal, use the portal's gateway path, `http://<portal-host>/api/registry-center`. The portal's own page URLs, such as `/registry`, return a web page, and the connection test suggests this path when it sees one.
 
 Things to know when operating this:
 

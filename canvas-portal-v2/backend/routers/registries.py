@@ -42,6 +42,9 @@ TIMEOUT_SECONDS = 5.0
 REVIEW_HISTORY_LIMIT = 100
 DOT_SEGMENTS = {".", ".."}
 
+# Where an OpenAN Portal's gateway exposes its Registry Center.
+PORTAL_REGISTRY_PATH = "/api/registry-center"
+
 BUILTIN_ID = "in-cluster"
 BUILTIN_NAME = "In-cluster"
 
@@ -67,6 +70,7 @@ FAILURE_MESSAGES = {
     "rate_limited": "The registry is rate limiting or temporarily banning this client.",
     "auth_unavailable": "The registry's authentication service is unavailable.",
     "not_registry": "The URL did not respond like an OpenAN Registry Center.",
+    "web_page": "The URL returned a web page instead of the registry API.",
     "upstream_error": "The registry returned an unexpected response.",
     "credentials_missing": "The saved credentials are missing. Remove this registry and add it again.",
 }
@@ -119,7 +123,7 @@ class Source:
 class SourceInput(BaseModel):
     name: str = Field(max_length=64)
     url: str = Field(max_length=2048)
-    authType: Literal["token", "basic", "oauth"]
+    authType: Literal["none", "token", "basic", "oauth"]
     skipTlsVerify: bool = False
     allowInsecureHttp: bool = False
     token: Optional[str] = Field(default=None, max_length=8192)
@@ -141,6 +145,8 @@ def _source_ref(source: Optional[Source]) -> dict:
 
 
 def _auth_headers(source: Source) -> dict:
+    if source.auth_type == "none":
+        return {}
     credentials = source.credentials or {}
     if source.auth_type == "token":
         return {"Authorization": f"Bearer {credentials.get('token', '')}"}
@@ -225,7 +231,8 @@ def _external_get(source: Source, path: str, params: Optional[dict] = None) -> d
         raise UpstreamFailure(STATUS_KINDS.get(response.status_code, "upstream_error"))
     body = _json_object(response)
     if body is None:
-        raise UpstreamFailure("not_registry")
+        start = response.content[:256].lstrip().lower()
+        raise UpstreamFailure("web_page" if start.startswith((b"<!doctype html", b"<html")) else "not_registry")
     return body
 
 
@@ -749,7 +756,9 @@ def _source_from_input(body: SourceInput, source_id: str = "") -> Source:
     url = _normalized_registry_url(_required(body.url, "URL"))
 
     token_url, grant_type = None, None
-    if body.authType == "token":
+    if body.authType == "none":
+        credentials = {}
+    elif body.authType == "token":
         token = _required(body.token, "Token").strip()
         # Anything else can't be sent in a header, and is usually a paste error.
         if not re.fullmatch(r"[\x21-\x7e]+", token):
@@ -778,7 +787,12 @@ def _source_from_input(body: SourceInput, source_id: str = "") -> Source:
         if _text(body.scope):
             credentials["scope"] = _text(body.scope)
 
-    if not body.allowInsecureHttp and any((value or "").lower().startswith("http://") for value in (url, token_url)):
+    sends_credentials = body.authType != "none"
+    if (
+        sends_credentials
+        and not body.allowInsecureHttp
+        and any((value or "").lower().startswith("http://") for value in (url, token_url))
+    ):
         raise CanvasPortalError("Credentials would be sent unencrypted over http://; confirm this to continue.", 400)
     return Source(
         id=source_id,
@@ -848,6 +862,12 @@ def _failed_test(source: Source, failure: UpstreamFailure, checks: list[dict], c
         # A retry with the same credentials could trigger the registry's ban.
         _record_failure(source, failure.kind)
         warnings.append("Repeated failed logins can get this portal banned by the registry for 5 minutes; fix the credentials before retrying.")
+    if failure.kind == "web_page":
+        parsed = httpx.URL(source.url)
+        origin = f"{parsed.scheme}://{parsed.netloc.decode('ascii')}"
+        warnings.append(f"If this is an OpenAN Portal, its registry API is usually at {origin}{PORTAL_REGISTRY_PATH}.")
+    if failure.kind == "bad_credentials" and source.auth_type == "none":
+        warnings.append("This registry requires credentials.")
     if failure.kind == "bad_credentials" and source.auth_type == "basic":
         warnings.append("OpenAN Registry Center accepts only Bearer tokens, so Basic credentials work only through a proxy that accepts them.")
     if failure.kind == "tls":

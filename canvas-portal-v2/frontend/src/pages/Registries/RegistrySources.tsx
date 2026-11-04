@@ -24,9 +24,10 @@ const AUTH_OPTIONS: { value: AuthType; label: string }[] = [
   { value: 'token', label: 'Token' },
   { value: 'basic', label: 'Username and password' },
   { value: 'oauth', label: 'OAuth token URL' },
+  { value: 'none', label: 'No credentials' },
 ]
 
-const AUTH_LABELS: Record<AuthType, string> = { token: 'Token', basic: 'Basic', oauth: 'OAuth' }
+const AUTH_LABELS: Record<AuthType, string> = { none: 'No credentials', token: 'Token', basic: 'Basic', oauth: 'OAuth' }
 
 const EMPTY_FORM = {
   name: '',
@@ -110,14 +111,16 @@ export default function RegistrySources() {
   const isOauth = form.authType === 'oauth'
   const usesPassword = form.authType === 'basic' || (isOauth && form.grantType === 'password')
   const usesClientSecret = isOauth && form.grantType === 'client_credentials'
-  const insecure = isPlainHttp(form.url) || (isOauth && isPlainHttp(form.tokenUrl))
+  const needsCredentials = form.authType !== 'none'
+  const insecure = needsCredentials && (isPlainHttp(form.url) || (isOauth && isPlainHttp(form.tokenUrl)))
 
   const credentialsComplete =
-    form.authType === 'token'
+    !needsCredentials ||
+    (form.authType === 'token'
       ? !!form.token.trim()
       : (!usesPassword || (!!form.username.trim() && !!form.password.trim())) &&
         (!usesClientSecret || (!!form.clientId.trim() && !!form.clientSecret.trim())) &&
-        (!isOauth || !!form.tokenUrl.trim())
+        (!isOauth || !!form.tokenUrl.trim()))
   const complete = !!form.name.trim() && !!form.url.trim() && credentialsComplete && (!insecure || form.allowInsecureHttp)
 
   function buildInput(): RegistrySourceInput {
@@ -128,6 +131,7 @@ export default function RegistrySources() {
       skipTlsVerify: form.skipTlsVerify,
       allowInsecureHttp: form.allowInsecureHttp,
     }
+    if (form.authType === 'none') return base
     if (form.authType === 'token') return { ...base, token: form.token }
     if (form.authType === 'basic') return { ...base, username: form.username, password: form.password }
     return {
@@ -242,7 +246,7 @@ export default function RegistrySources() {
         />
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: needsCredentials ? 10 : 0 }}>
         {form.authType === 'token' && (
           <Input.Password
             aria-label="Token"

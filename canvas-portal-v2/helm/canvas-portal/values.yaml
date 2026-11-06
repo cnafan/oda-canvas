@@ -55,6 +55,10 @@ frontend:
     keycloakUrl: /auth
     keycloakRealm: odari
     keycloakClientId: canvas-portal
+    # Serve the SPA under this sub-path (must match the build-time VITE_BASE/FRONTEND_BASE).
+    appBase: ""
+    # External OpenAN portal URL for the sidebar jump entries. Empty hides the OPENAN section.
+    openanPortalUrl: ""
   nginx:
     backendUpstream: ""
     keycloakUpstream: "https://136.115.158.138:8443/auth"

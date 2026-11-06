@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    base: env.VITE_BASE ?? '/',
     resolve: {
       alias: { '@': resolve(__dirname, './src') },
     },

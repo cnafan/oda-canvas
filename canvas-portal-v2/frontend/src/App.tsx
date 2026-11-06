@@ -15,6 +15,9 @@ import TMFAIAgentsPage from '@/pages/TMFAIAgents'
 import RegistriesPage from '@/pages/Registries'
 import GatewaysPage from '@/pages/Gateways'
 import HighValueScenariosPage from '@/pages/HighValueScenarios'
+import { getBasePath } from '@/config'
+
+const base = getBasePath()
 
 const router = createBrowserRouter([
   {
@@ -54,7 +57,7 @@ const router = createBrowserRouter([
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
-])
+], base ? { basename: base } : undefined)
 
 export default function App() {
   return <RouterProvider router={router} />

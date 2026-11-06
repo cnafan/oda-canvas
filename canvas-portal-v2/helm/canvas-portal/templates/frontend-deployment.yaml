@@ -51,6 +51,10 @@ spec:
               value: {{ .Values.frontend.runtime.keycloakRealm | quote }}
             - name: APP_KEYCLOAK_CLIENT_ID
               value: {{ .Values.frontend.runtime.keycloakClientId | quote }}
+            - name: APP_BASE
+              value: {{ .Values.frontend.runtime.appBase | quote }}
+            - name: OPENAN_PORTAL_URL
+              value: {{ .Values.frontend.runtime.openanPortalUrl | quote }}
           readinessProbe:
             httpGet:
               path: /

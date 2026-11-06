@@ -8,6 +8,7 @@ import {
 import { login, storeTokensFromResponse } from '@/lib/auth';
 import { colors } from '@/theme';
 import apiClient from '@/api/client';
+import { getAssetPath } from '@/config'
 
 const { Title, Text } = Typography;
 
@@ -72,7 +73,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
       >
         <div>
           <img
-            src="/TM_Forum_logo_RGB_WO.png"
+            src={getAssetPath('/TM_Forum_logo_RGB_WO.png')}
             alt="TM Forum"
             style={{ height: 34, width: 'auto', display: 'block', marginBottom: 46 }}
           />
@@ -138,7 +139,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <img
-              src="/TM_Forum_logo_primary_RGB.png"
+              src={getAssetPath('/TM_Forum_logo_primary_RGB.png')}
               alt="TM Forum"
               style={{ height: 62, width: 'auto', display: 'block' }}
             />

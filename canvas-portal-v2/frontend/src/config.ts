@@ -1,8 +1,10 @@
 type RuntimeConfig = {
+  APP_BASE?: string
   API_BASE_URL?: string
   KEYCLOAK_URL?: string
   KEYCLOAK_REALM?: string
   KEYCLOAK_CLIENT_ID?: string
+  OPENAN_PORTAL_URL?: string
 }
 
 function getRuntimeConfig(): RuntimeConfig {
@@ -45,4 +47,16 @@ export function getKeycloakRealm(): string {
 
 export function getKeycloakClientId(): string {
   return getRuntimeConfig().KEYCLOAK_CLIENT_ID || import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'canvas-portal'
+}
+
+export function getBasePath(): string {
+  return trimTrailingSlash(getRuntimeConfig().APP_BASE) || ''
+}
+
+export function getAssetPath(path: string): string {
+  return `${getBasePath()}${withLeadingSlash(path)}`
+}
+
+export function getOpenanPortalUrl(): string {
+  return trimTrailingSlash(getRuntimeConfig().OPENAN_PORTAL_URL) || ''
 }

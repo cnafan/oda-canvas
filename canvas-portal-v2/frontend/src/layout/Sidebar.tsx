@@ -22,6 +22,7 @@ import {
   MenuUnfoldOutlined,
 } from '@ant-design/icons'
 import { colors } from '@/theme'
+import { getAssetPath, getOpenanPortalUrl } from '@/config'
 
 interface NavItem {
   key: string
@@ -30,7 +31,10 @@ interface NavItem {
   path?: string
   children?: NavItem[]
   section?: string
+  external?: string
 }
+
+const openanUrl = getOpenanPortalUrl()
 
 const navItems: NavItem[] = [
   // DASHBOARD
@@ -59,6 +63,14 @@ const navItems: NavItem[] = [
   { key: 'operators', label: 'Operators', icon: <ControlOutlined />, path: '/operators', section: 'PLATFORM' },
   { key: 'observability', label: 'Observability', icon: <MonitorOutlined />, path: '/observability', section: 'PLATFORM' },
   { key: 'bdd', label: 'BDD', icon: <ExperimentOutlined />, path: '/bdd', section: 'PLATFORM' },
+
+  // OPENAN (external jump entries; shown only when OPENAN_PORTAL_URL is configured)
+  ...(openanUrl
+    ? [
+        { key: 'openan-portal', label: 'OpenAN Portal', icon: <GlobalOutlined />, external: openanUrl, section: 'OPENAN' },
+        { key: 'openan-orchestration', label: 'Orchestration Center', icon: <ControlOutlined />, external: `${openanUrl}/orchestration`, section: 'OPENAN' },
+      ]
+    : []),
 ]
 
 function isActive(path: string | undefined, location: string): boolean {
@@ -82,7 +94,7 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const visibleNavItems = navItems
-  const logoSrc = '/TM_Forum_logo_RGB_WO.png'
+  const logoSrc = getAssetPath('/TM_Forum_logo_RGB_WO.png')
   const sidebarBorder = 'rgba(255,255,255,0.08)'
   const sidebarText = 'rgba(255,255,255,0.78)'
   const sidebarMuted = 'rgba(255,255,255,0.48)'
@@ -106,7 +118,9 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
     navigate(path)
   }
 
-  const sections = ['DASHBOARD', 'COMPONENTS', 'APIS', 'AI', 'PLATFORM']
+  const sections = openanUrl
+    ? ['DASHBOARD', 'COMPONENTS', 'APIS', 'AI', 'PLATFORM', 'OPENAN']
+    : ['DASHBOARD', 'COMPONENTS', 'APIS', 'AI', 'PLATFORM']
 
   return (
     <div
@@ -236,6 +250,8 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
                         if (hasChildren) {
                           if (collapsed && item.children?.[0]?.path) handleNav(item.children[0].path)
                           else if (!collapsed) toggleGroup(item.key)
+                        } else if (item.external) {
+                          window.open(item.external, '_blank', 'noopener')
                         } else if (item.path) {
                           handleNav(item.path)
                         }

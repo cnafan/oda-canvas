@@ -18,6 +18,7 @@ import { fetchOperators } from '@/api/operators'
 import { fetchExposedApis } from '@/api/exposedApis'
 import { fetchClusterOverview } from '@/api/cluster'
 import { colors } from '@/theme'
+import { getAssetPath } from '@/config'
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -191,7 +192,7 @@ function fmtGiB(bytes: number) {
 function KongLogo({ size = 24 }: { size?: number }) {
   return (
     <img
-      src="/Kong_logo.png"
+      src={getAssetPath('/Kong_logo.png')}
       alt="Kong"
       style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
     />
@@ -201,7 +202,7 @@ function KongLogo({ size = 24 }: { size?: number }) {
 function ApisixLogo({ size = 24 }: { size?: number }) {
   return (
     <img
-      src="/apisix-logo.png"
+      src={getAssetPath('/apisix-logo.png')}
       alt="APISIX"
       style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
     />
@@ -224,7 +225,7 @@ function IstioLogo({ size = 24 }: { size?: number }) {
 function KeycloakLogo({ size = 20 }: { size?: number }) {
   return (
     <img
-      src="/keycloak-logo.png"
+      src={getAssetPath('/keycloak-logo.png')}
       alt="Keycloak"
       style={{ width: size, height: size, objectFit: 'contain', display: 'block' }}
     />

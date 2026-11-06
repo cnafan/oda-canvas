@@ -30,13 +30,16 @@ ENV FRONTEND_PORT=80 \
 
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY docker-entrypoint.d/30-runtime-config.sh /docker-entrypoint.d/30-runtime-config.sh
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/dist /tmp/dist
 
 RUN chmod +x /docker-entrypoint.d/30-runtime-config.sh && \
     if [ -n "$FRONTEND_BASE" ]; then \
       mkdir -p "/usr/share/nginx/html${FRONTEND_BASE}" && \
-      cp -a /usr/share/nginx/html/. "/usr/share/nginx/html${FRONTEND_BASE}/" && \
+      cp -a /tmp/dist/. /usr/share/nginx/html/ && \
+      cp -a /tmp/dist/. "/usr/share/nginx/html${FRONTEND_BASE}/" && \
       sed -i "s|src=\"/config.js\"|src=\"${FRONTEND_BASE}/config.js\"|; s|href=\"/vite.svg\"|href=\"${FRONTEND_BASE}/vite.svg\"|" "/usr/share/nginx/html${FRONTEND_BASE}/index.html"; \
-    fi
+    else \
+      cp -a /tmp/dist/. /usr/share/nginx/html/; \
+    fi && rm -rf /tmp/dist
 
 EXPOSE 80

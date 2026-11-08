@@ -12,12 +12,13 @@ export interface PageSection {
   content?: React.ReactNode
 }
 
-interface SectionedPageProps {
-  title: string
-  description: string
-  icon: React.ReactNode
+type SectionedPageProps = {
   sections: PageSection[]
-}
+} & (
+  | { title: string; description: string; icon: React.ReactNode; header?: never }
+  /** A custom header shown in place of the default title row. */
+  | { header: React.ReactNode; title?: never; description?: never; icon?: never }
+)
 
 function WipBadge() {
   return (
@@ -42,33 +43,38 @@ function WipBadge() {
 }
 
 /** Page header followed by one stacked card per section. */
-export default function SectionedPage({ title, description, icon, sections }: SectionedPageProps) {
+export default function SectionedPage({ title, description, icon, header, sections }: SectionedPageProps) {
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              background: colors.primaryGradient,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 18,
-              color: '#fff',
-            }}
-          >
-            {icon}
+    // A custom header is a full-width card like the other inventory pages, so it needs no extra inset.
+    <div style={{ padding: header ? 0 : 24 }}>
+      {header ? (
+        <div style={{ marginBottom: 16 }}>{header}</div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: colors.primaryGradient,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: '#fff',
+              }}
+            >
+              {icon}
+            </div>
+            <div>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{title}</h1>
+              <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>{description}</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{title}</h1>
-            <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>{description}</p>
-          </div>
+          <WipBadge />
         </div>
-        <WipBadge />
-      </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {sections.map((section) => (

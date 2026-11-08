@@ -15,6 +15,7 @@ import TMFAIAgentsPage from '@/pages/TMFAIAgents'
 import RegistriesPage from '@/pages/Registries'
 import GatewaysPage from '@/pages/Gateways'
 import HighValueScenariosPage from '@/pages/HighValueScenarios'
+import KnowledgePage from '@/pages/Knowledge'
 
 const router = createBrowserRouter([
   {
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
       { path: 'registries/agents/:registryId/:organization/:name', element: <RegistriesPage /> },
       { path: 'gateways', element: <GatewaysPage /> },
       { path: 'high-value-scenarios', element: <HighValueScenariosPage /> },
+      { path: 'knowledge', element: <KnowledgePage /> },
 
       // Catch-all
       { path: '*', element: <Navigate to="/" replace /> },

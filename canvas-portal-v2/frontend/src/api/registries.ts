@@ -163,7 +163,7 @@ export async function fetchAgents(refresh = false): Promise<AgentList> {
 const AGENTS_KEY = ['registry-agents']
 const SOURCES_KEY = ['registry-sources']
 
-/** The agent list, shared by the Agents, Skills and Manage Registries sections. */
+/** The agent list, shared by the Agents, Skills and Agent Registries sections. */
 export function useAgents() {
   return useQuery({ queryKey: AGENTS_KEY, queryFn: () => fetchAgents() })
 }

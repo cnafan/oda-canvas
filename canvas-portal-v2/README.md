@@ -191,7 +191,7 @@ The frontend gets its runtime settings (`APP_API_BASE_URL`, `APP_KEYCLOAK_*`) fr
 The Agents section of the Registries page reads from an OpenAN Registry Center through the backend. Set both values to enable it; otherwise the section reports that it is not configured.
 
 - `backend.registryCenter.url`: for example `http://openan-registry-center-registry-center.components.svc.cluster.local:5000`.
-- `backend.registryCenter.pageUrl` (optional): the registry's portal page as a browser reaches it. When set, the Manage Registries card shows an Open URL icon for the in-cluster registry.
+- `backend.registryCenter.pageUrl` (optional): the registry's portal page as a browser reaches it. When set, the Agent Registries card shows an Open URL icon for the in-cluster registry.
 - `backend.secretEnv.REGISTRY_CENTER_TOKEN`: a static Bearer token for a dedicated credential with the `nms_oss` role. Lesser roles get 403 on the management, health and review routes. The role can also write, but the portal only sends GET requests and never gives the token to the browser.
 
 An agent counts as active when its review status is `published`.
@@ -200,7 +200,7 @@ What users see depends on `backend.auth.adminGroups`. Admins see every agent in 
 
 ### External registries
 
-Admins can add Registry Centers running outside the cluster from the Manage Registries card on the Registries page. Their agents appear in the Agents section. The Skills section lists the skills declared in the agent cards of every registry, because no registry has a separate skills API.
+Admins can add Registry Centers running outside the cluster from the Agent Registries card on the Registries page. Their agents appear in the Agents section. The Skills section lists the skills declared in the agent cards of every registry, because no registry has a separate skills API.
 
 Each registry takes a URL, an optional **Registry page** and one of these credentials. When a registry page is set, its card shows an Open URL icon that opens the page in a new browser window or tab. The portal backend never calls this address.
 

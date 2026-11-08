@@ -135,7 +135,7 @@ export default function RegistrySources() {
             <DatabaseOutlined />
           </div>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 760, color: colors.textPrimary, margin: 0 }}>Manage Registries</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 760, color: colors.textPrimary, margin: 0 }}>Agent Registries</h1>
             <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>
               Agent and skill registries available to the Canvas
             </p>

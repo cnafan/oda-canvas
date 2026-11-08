@@ -22,6 +22,7 @@ import {
   MenuUnfoldOutlined,
 } from '@ant-design/icons'
 import { colors } from '@/theme'
+import BrainOutlined from '@/components/BrainOutlined'
 
 interface NavItem {
   key: string
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
   { key: 'registries', label: 'Registries', icon: <DatabaseOutlined />, path: '/registries', section: 'AI' },
   { key: 'gateways', label: 'Gateways', icon: <ApiOutlined />, path: '/gateways', section: 'AI' },
   { key: 'high-value-scenarios', label: 'High Value Scenarios', icon: <ThunderboltOutlined />, path: '/high-value-scenarios', section: 'AI' },
+  { key: 'knowledge', label: 'Knowledge', icon: <BrainOutlined />, path: '/knowledge', section: 'AI' },
 
   // PLATFORM
   { key: 'operators', label: 'Operators', icon: <ControlOutlined />, path: '/operators', section: 'PLATFORM' },

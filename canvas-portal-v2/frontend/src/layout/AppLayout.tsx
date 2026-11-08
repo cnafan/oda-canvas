@@ -44,6 +44,9 @@ function getRouteMeta(pathname: string): RouteMeta {
   if (pathname.startsWith('/high-value-scenarios')) {
     return { eyebrow: 'AI', title: 'High Value Scenarios', description: '' }
   }
+  if (pathname.startsWith('/knowledge')) {
+    return { eyebrow: 'AI', title: 'Knowledge', description: '' }
+  }
   if (pathname.startsWith('/gateway')) {
     return { eyebrow: 'APIs', title: 'Gateway', description: '' }
   }

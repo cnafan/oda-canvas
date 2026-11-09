@@ -74,7 +74,6 @@ const navItems: NavItem[] = [
   ...(openanUrl
     ? [
         { key: 'openan-portal', label: 'OpenAN Portal', icon: <GlobalOutlined />, external: openanUrl, section: 'OPENAN' },
-        { key: 'openan-orchestration', label: t("Orchestration Center"), icon: <ControlOutlined />, external: `${openanUrl}/orchestration`, section: 'OPENAN' },
       ]
     : []),
 ]

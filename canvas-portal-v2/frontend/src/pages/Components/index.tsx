@@ -10,6 +10,7 @@ import ComponentTopology from '@/components/ComponentTopology'
 import ComponentDetailBody from './ComponentDetailBody'
 import StatusBadge from '@/components/StatusBadge'
 import { colors } from '@/theme'
+import { componentDisplayName } from '@/lib/componentDisplayName'
 
 const ALPHABET = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')]
 
@@ -64,6 +65,7 @@ export default function ComponentsPage() {
     const matchSearch =
       !search ||
       c.name.toLowerCase().includes(search.toLowerCase()) ||
+      componentDisplayName(c).toLowerCase().includes(search.toLowerCase()) ||
       c.namespace.toLowerCase().includes(search.toLowerCase())
 
     const matchNs = nsFilter === 'all' || c.namespace === nsFilter
@@ -339,7 +341,7 @@ export default function ComponentsPage() {
             </span>
             <span style={{ color: colors.border }}>·</span>
             <span style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 600 }}>
-              {selected ? `${selected.namespace}/${selected.name}` : picker ? t(picker.label) : ''}
+              {selected ? `${selected.namespace}/${componentDisplayName(selected)}` : picker ? t(picker.label) : ''}
             </span>
           </div>
         }
@@ -436,7 +438,7 @@ function InstancePicker({
           >
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: colors.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {instance.name}
+                {componentDisplayName(instance)}
               </div>
               <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>
                 <span style={{ fontFamily: 'monospace' }}>{instance.namespace}</span>

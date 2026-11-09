@@ -33,6 +33,7 @@ import PodList from '@/components/PodList'
 import AgentRegistration from './AgentRegistration'
 import LogViewer from '@/components/LogViewer'
 import { colors } from '@/theme'
+import { componentDisplayName } from '@/lib/componentDisplayName'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 
@@ -300,7 +301,7 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
 
               {t("Component Info")}
             </div>
-            <InfoRow label={t("Name")} value={component.name} />
+            <InfoRow label={t("Name")} value={componentDisplayName(component)} />
             <InfoRow label={t("Namespace")} value={
               <Tag style={{ background: colors.infoSurface, color: colors.infoText, border: 'none', borderRadius: 4, fontFamily: 'monospace', fontSize: 12 }}>
                 {component.namespace}
@@ -560,7 +561,7 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
         </div>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>
-            {component.name}
+            {componentDisplayName(component)}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
             <Tag style={{ background: colors.infoSurface, color: colors.infoText, border: 'none', borderRadius: 4, fontFamily: 'monospace', fontSize: 12 }}>

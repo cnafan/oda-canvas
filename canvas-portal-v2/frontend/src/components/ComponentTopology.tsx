@@ -12,6 +12,7 @@ import {
   type TmfOperatorCatalogEntry,
 } from '@/data/tmfComponentCatalog'
 import { colors } from '@/theme'
+import { componentDisplayName } from '@/lib/componentDisplayName'
 
 interface ComponentTopologyProps {
   components: OdaComponent[]
@@ -749,7 +750,7 @@ function OutsideCatalogCard({
   // a regular TMF tile. The only intentional difference is the missing
   // `code`, which ComponentRow already hides conditionally.
   const tiles: CatalogTile[] = components.map((component) => ({
-    name: component.name,
+    name: componentDisplayName(component),
     domainKey: 'outside-tmf',
     domainTitle: 'Outside TMF Catalog',
     instances: [component],

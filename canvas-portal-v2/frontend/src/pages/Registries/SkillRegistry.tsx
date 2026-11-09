@@ -7,6 +7,7 @@ import { HexBadge } from '@/components/ComponentTopology'
 import { colors } from '@/theme'
 import { ACTIVE_PAINT, IDLE_PAINT, Notice, tileProps } from './AgentRegistry'
 import { isActiveAgent } from './AgentDetailBody'
+import { AgentIcon } from './registryUi'
 
 interface SkillEntry {
   key: string
@@ -39,7 +40,10 @@ function SkillTile({ entry, onSelect }: { entry: SkillEntry; onSelect: () => voi
       {...tile}
       style={{ ...tile.style, alignItems: 'flex-start' }}
     >
-      <HexBadge paint={active ? ACTIVE_PAINT : IDLE_PAINT} label="SKILL" />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <HexBadge paint={active ? ACTIVE_PAINT : IDLE_PAINT} label="SKILL" />
+        <AgentIcon iconUrl={agent.iconUrl} />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: colors.textPrimary, overflowWrap: 'anywhere' }}>{skillName}</div>
         {skill.description && (

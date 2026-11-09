@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Alert, Button, Drawer, Grid, Input, Select, Tooltip } from 'antd'
+import { Alert, Button, Drawer, Grid, Input, Select, Tag, Tooltip } from 'antd'
 import { CloseOutlined, ReloadOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -58,20 +58,6 @@ export function tileProps(active: boolean) {
       n.style.boxShadow = BASE_SHADOW
       n.style.borderColor = restingBorder
     },
-  }
-}
-
-function badgeStyle(background: string, color: string): React.CSSProperties {
-  return {
-    display: 'inline-block',
-    padding: '1px 6px',
-    borderRadius: 4,
-    background,
-    color,
-    fontSize: 10,
-    fontWeight: 700,
-    fontFamily: 'monospace',
-    letterSpacing: 0.3,
   }
 }
 
@@ -154,9 +140,25 @@ function AgentTile({
             {agent.name}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-            {organization && <span style={badgeStyle(paint.badgeBg, paint.badgeText)}>{organization}</span>}
-            {layer && <span style={badgeStyle(colors.infoSurface, colors.infoText)}>{layer}</span>}
-            {version && <span style={badgeStyle(colors.hoverSurface, colors.textSecondary)}>v{version}</span>}
+            {organization && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                  background: paint.badgeBg,
+                  color: paint.badgeText,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  fontFamily: 'monospace',
+                  letterSpacing: 0.3,
+                }}
+              >
+                {organization}
+              </span>
+            )}
+            {layer && <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>{layer}</Tag>}
+            {version && <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>v{version}</Tag>}
             <AgentStatusPill status={publishStatus} />
           </div>
           {showRegistry && agent.registry && (

@@ -191,6 +191,14 @@ export async function fetchAgent(organization: string, name: string, registryId?
   return data
 }
 
+/** One agent's details. The agent cards and the detail drawer share this cache entry. */
+export function useAgentDetail(organization: string, name: string, registryId?: string) {
+  return useQuery({
+    queryKey: ['registry-agent', registryId ?? null, organization, name],
+    queryFn: () => fetchAgent(organization, name, registryId),
+  })
+}
+
 /** The page URL of an agent. In-cluster agents keep their original, shorter URL. */
 export function agentPagePath(agent: AgentListItem): string {
   const agentPath = `${encodeURIComponent(agent.provider?.organization ?? '')}/${encodeURIComponent(agent.name)}`

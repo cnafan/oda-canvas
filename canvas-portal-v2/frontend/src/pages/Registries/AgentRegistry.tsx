@@ -3,7 +3,14 @@ import { Alert, Button, Drawer, Grid, Input, Select, Tooltip } from 'antd'
 import { CloseOutlined, ReloadOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { agentPagePath, refreshAgents, registryErrorMessage, useAgents, type AgentListItem } from '@/api/registries'
+import {
+  agentPagePath,
+  refreshAgents,
+  registryErrorMessage,
+  useAgentDetail,
+  useAgents,
+  type AgentListItem,
+} from '@/api/registries'
 import { HexBadge, type DomainPaint } from '@/components/ComponentTopology'
 import { colors } from '@/theme'
 import AgentDetailBody, { AgentStatusPill, isActiveAgent } from './AgentDetailBody'
@@ -54,6 +61,20 @@ export function tileProps(active: boolean) {
   }
 }
 
+function badgeStyle(background: string, color: string): React.CSSProperties {
+  return {
+    display: 'inline-block',
+    padding: '1px 6px',
+    borderRadius: 4,
+    background,
+    color,
+    fontSize: 10,
+    fontWeight: 700,
+    fontFamily: 'monospace',
+    letterSpacing: 0.3,
+  }
+}
+
 function AgentTile({
   agent,
   showRegistry,
@@ -66,6 +87,16 @@ function AgentTile({
   const active = isActiveAgent(agent.publishStatus)
   const organization = organizationOf(agent)
   const skillCount = agent.skills?.length ?? 0
+  const paint = active ? ACTIVE_PAINT : IDLE_PAINT
+  // The layer is only in the agent's details; version and status fall back to the listing until they load.
+  const { data: detail } = useAgentDetail(
+    organization,
+    agent.name,
+    agent.registry && !agent.registry.builtin ? agent.registry.id : undefined
+  )
+  const layer = detail?.layer
+  const version = detail?.card.version ?? agent.version
+  const publishStatus = detail?.publishStatus ?? agent.publishStatus
 
   const tooltip = (
     <div style={{ minWidth: 220 }}>
@@ -122,25 +153,12 @@ function AgentTile({
           >
             {agent.name}
           </div>
-          {organization && (
-            <div style={{ marginTop: 4 }}>
-              <span
-                style={{
-                  display: 'inline-block',
-                  padding: '1px 6px',
-                  borderRadius: 4,
-                  background: (active ? ACTIVE_PAINT : IDLE_PAINT).badgeBg,
-                  color: (active ? ACTIVE_PAINT : IDLE_PAINT).badgeText,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  fontFamily: 'monospace',
-                  letterSpacing: 0.3,
-                }}
-              >
-                {organization}
-              </span>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+            {organization && <span style={badgeStyle(paint.badgeBg, paint.badgeText)}>{organization}</span>}
+            {layer && <span style={badgeStyle(colors.infoSurface, colors.infoText)}>{layer}</span>}
+            {version && <span style={badgeStyle(colors.hoverSurface, colors.textSecondary)}>v{version}</span>}
+            <AgentStatusPill status={publishStatus} />
+          </div>
           {showRegistry && agent.registry && (
             <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4, overflowWrap: 'anywhere' }}>
               {agent.registry.name}
@@ -148,10 +166,7 @@ function AgentTile({
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <AgentStatusPill status={agent.publishStatus} />
-          <RightOutlined style={{ fontSize: 11, color: colors.textMuted }} />
-        </div>
+        <RightOutlined style={{ fontSize: 11, color: colors.textMuted, flexShrink: 0 }} />
       </button>
     </Tooltip>
   )

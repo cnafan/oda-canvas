@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Alert, Card, Spin, Table, Tabs, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -13,7 +12,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
-  fetchAgent,
+  useAgentDetail,
   registryErrorMessage,
   type AgentInterface,
   type ReviewTransition,
@@ -121,10 +120,7 @@ export default function AgentDetailBody({
 }) {
   const [rawFormat, setRawFormat] = useState<'yaml' | 'json'>('yaml')
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['registry-agent', registryId ?? null, organization, name],
-    queryFn: () => fetchAgent(organization, name, registryId),
-  })
+  const { data, isLoading, isError, error } = useAgentDetail(organization, name, registryId)
 
   if (isLoading) {
     return (

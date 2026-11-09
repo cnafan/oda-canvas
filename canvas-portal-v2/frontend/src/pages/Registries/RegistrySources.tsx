@@ -24,7 +24,7 @@ import {
 } from '@/api/registries'
 import { colors } from '@/theme'
 import RegistrySourceModal from './RegistrySourceModal'
-import { TestResultAlert, subtleButton } from './registryUi'
+import { RegistryIcon, TestResultAlert, subtleButton } from './registryUi'
 
 const AUTH_LABELS: Record<AuthType, string> = { none: 'No credentials', token: 'Token', basic: 'Basic', oauth: 'OAuth' }
 
@@ -197,90 +197,93 @@ export default function RegistrySources() {
                       background: colors.surfaceSubtle,
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{source.name}</span>
-                          <Tag
-                            style={
-                              healthy
-                                ? pillStyle('rgba(16,185,129,0.12)', colors.statusLive)
-                                : status
-                                  ? pillStyle('rgba(239,68,68,0.12)', colors.statusDown)
-                                  : pillStyle(colors.hoverSurface, colors.textSecondary)
-                            }
-                          >
-                            {statusLabel}
-                          </Tag>
-                          {status && (
-                            <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>
-                              {status.agentCount} agent{status.agentCount === 1 ? '' : 's'}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                      <RegistryIcon pageUrl={source.pageUrl} />
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ color: colors.textPrimary, fontWeight: 600 }}>{source.name}</span>
+                            <Tag
+                              style={
+                                healthy
+                                  ? pillStyle('rgba(16,185,129,0.12)', colors.statusLive)
+                                  : status
+                                    ? pillStyle('rgba(239,68,68,0.12)', colors.statusDown)
+                                    : pillStyle(colors.hoverSurface, colors.textSecondary)
+                              }
+                            >
+                              {statusLabel}
                             </Tag>
-                          )}
-                          <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>
-                            {source.builtin ? 'Set by chart' : AUTH_LABELS[source.authType]}
-                          </Tag>
-                          {healthy && !status.fullAccess && (
-                            <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>Published agents only</Tag>
-                          )}
-                          {source.skipTlsVerify && (
-                            <Tag style={pillStyle('rgba(245,158,11,0.15)', '#92400E')}>TLS not verified</Tag>
+                            {status && (
+                              <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>
+                                {status.agentCount} agent{status.agentCount === 1 ? '' : 's'}
+                              </Tag>
+                            )}
+                            <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>
+                              {source.builtin ? 'Set by chart' : AUTH_LABELS[source.authType]}
+                            </Tag>
+                            {healthy && !status.fullAccess && (
+                              <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>Published agents only</Tag>
+                            )}
+                            {source.skipTlsVerify && (
+                              <Tag style={pillStyle('rgba(245,158,11,0.15)', '#92400E')}>TLS not verified</Tag>
+                            )}
+                          </div>
+                          <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 6, overflowWrap: 'anywhere' }}>
+                            <code>{source.url}</code>
+                          </div>
+                          {status?.message && (
+                            <div style={{ color: colors.statusDown, fontSize: 12, marginTop: 6 }}>{status.message}</div>
                           )}
                         </div>
-                        <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 6, overflowWrap: 'anywhere' }}>
-                          <code>{source.url}</code>
-                        </div>
-                        {status?.message && (
-                          <div style={{ color: colors.statusDown, fontSize: 12, marginTop: 6 }}>{status.message}</div>
+                        {(source.pageUrl || !source.builtin) && (
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {source.pageUrl && (
+                              <Tooltip title="Open URL">
+                                <Button
+                                  aria-label={`Open the ${source.name} registry page`}
+                                  icon={<ExportOutlined />}
+                                  href={source.pageUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={subtleButton}
+                                />
+                              </Tooltip>
+                            )}
+                            {!source.builtin && (
+                              <>
+                                <Button
+                                  icon={<ApiOutlined />}
+                                  loading={busyId === source.id}
+                                  onClick={() => handleRowTest(source)}
+                                  style={subtleButton}
+                                >
+                                  Test
+                                </Button>
+                                <Button
+                                  icon={<EditOutlined />}
+                                  disabled={busyId === source.id}
+                                  onClick={() => openModal(source)}
+                                  style={subtleButton}
+                                >
+                                  Edit
+                                </Button>
+                                <Popconfirm
+                                  title={`Remove ${source.name}?`}
+                                  description="Its saved credentials are deleted too."
+                                  okText="Remove"
+                                  okButtonProps={{ danger: true }}
+                                  onConfirm={() => handleRemove(source)}
+                                >
+                                  <Button icon={<DeleteOutlined />} danger disabled={busyId === source.id}>
+                                    Remove
+                                  </Button>
+                                </Popconfirm>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
-                      {(source.pageUrl || !source.builtin) && (
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {source.pageUrl && (
-                            <Tooltip title="Open URL">
-                              <Button
-                                aria-label={`Open the ${source.name} registry page`}
-                                icon={<ExportOutlined />}
-                                href={source.pageUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={subtleButton}
-                              />
-                            </Tooltip>
-                          )}
-                          {!source.builtin && (
-                            <>
-                              <Button
-                                icon={<ApiOutlined />}
-                                loading={busyId === source.id}
-                                onClick={() => handleRowTest(source)}
-                                style={subtleButton}
-                              >
-                                Test
-                              </Button>
-                              <Button
-                                icon={<EditOutlined />}
-                                disabled={busyId === source.id}
-                                onClick={() => openModal(source)}
-                                style={subtleButton}
-                              >
-                                Edit
-                              </Button>
-                              <Popconfirm
-                                title={`Remove ${source.name}?`}
-                                description="Its saved credentials are deleted too."
-                                okText="Remove"
-                                okButtonProps={{ danger: true }}
-                                onConfirm={() => handleRemove(source)}
-                              >
-                                <Button icon={<DeleteOutlined />} danger disabled={busyId === source.id}>
-                                  Remove
-                                </Button>
-                              </Popconfirm>
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
                     {rowResults[source.id] && (
                       <div style={{ marginTop: 12 }}>

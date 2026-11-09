@@ -1,5 +1,6 @@
 // Portal interface translations; identifiers and server data remain unchanged.
 const zh: Record<string, string> = {
+  "Knowledge": "知识库",
   "Agent registration": "智能体注册",
   "Agent Card": "智能体卡片",
   "Registry status": "注册状态",

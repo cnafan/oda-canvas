@@ -16,6 +16,7 @@ import RegistriesPage from '@/pages/Registries'
 import GatewaysPage from '@/pages/Gateways'
 import HighValueScenariosPage from '@/pages/HighValueScenarios'
 import { getBasePath } from '@/config'
+import KnowledgePage from '@/pages/Knowledge'
 
 const base = getBasePath()
 
@@ -52,6 +53,7 @@ const router = createBrowserRouter([
       { path: 'registries/agents/:registryId/:organization/:name', element: <RegistriesPage /> },
       { path: 'gateways', element: <GatewaysPage /> },
       { path: 'high-value-scenarios', element: <HighValueScenariosPage /> },
+      { path: 'knowledge', element: <KnowledgePage /> },
 
       // Catch-all
       { path: '*', element: <Navigate to="/" replace /> },

@@ -25,6 +25,7 @@ import {
 } from '@ant-design/icons'
 import { colors } from '@/theme'
 import { getAssetPath, getOpenanPortalUrl } from '@/config'
+import BrainOutlined from '@/components/BrainOutlined'
 
 interface NavItem {
   key: string
@@ -55,11 +56,14 @@ const navItems: NavItem[] = [
   { key: 'policies', label: t("Policies"), icon: <SafetyCertificateOutlined />, path: '/policies', section: 'APIS' },
 
   // AI
+
   { key: 'model-gateway', label: t("Model Gateway"), icon: <RobotOutlined />, path: '/model-gateway-services', section: 'AI' },
   { key: 'tmf-ai-agents', label: t("TMF AI Agents"), icon: <RobotOutlined />, path: '/tmf-ai-agents', section: 'AI' },
   { key: 'registries', label: t("Registries"), icon: <DatabaseOutlined />, path: '/registries', section: 'AI' },
   { key: 'gateways', label: t("AI Gateways"), icon: <ApiOutlined />, path: '/gateways', section: 'AI' },
   { key: 'high-value-scenarios', label: t("High Value Scenarios"), icon: <ThunderboltOutlined />, path: '/high-value-scenarios', section: 'AI' },
+  { key: 'knowledge', label: t('Knowledge'), icon: <BrainOutlined />, path: '/knowledge', section: 'AI' },
+
 
   // PLATFORM
   { key: 'operators', label: t("Operators"), icon: <ControlOutlined />, path: '/operators', section: 'PLATFORM' },

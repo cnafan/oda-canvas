@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import {
   ApiOutlined,
@@ -109,7 +110,8 @@ export default function Placeholder({ title, description, embedded = false }: Pl
             display: 'inline-block',
           }}
         />
-        Coming Soon
+
+        {t("Coming Soon")}
       </div>
 
       {/* Decorative lines */}

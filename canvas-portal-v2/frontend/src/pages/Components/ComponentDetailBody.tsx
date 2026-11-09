@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Tabs, Card, Tag, Spin, Alert, Table, Tooltip, Button, Segmented, message } from 'antd'
@@ -29,6 +30,7 @@ import {
 } from '@/api/components'
 import StatusBadge from '@/components/StatusBadge'
 import PodList from '@/components/PodList'
+import AgentRegistration from './AgentRegistration'
 import LogViewer from '@/components/LogViewer'
 import { colors } from '@/theme'
 import dayjs from 'dayjs'
@@ -210,14 +212,14 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
       <Alert
         type="error"
         message={`Component ${namespace}/${name} not found`}
-        action={onClose ? <Button onClick={onClose}>Close</Button> : undefined}
+        action={onClose ? <Button onClick={onClose}>{t("Close")}</Button> : undefined}
       />
     )
   }
 
   const eventColumns: ColumnsType<ComponentEvent> = [
     {
-      title: 'Type',
+      title: t("Type"),
       dataIndex: 'type',
       key: 'type',
       width: 90,
@@ -280,8 +282,9 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
   const tabItems = [
     {
       key: 'overview',
-      label: 'Overview',
+      label: t("Overview"),
       children: (
+        <div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <Card
             style={{
@@ -294,20 +297,21 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
             bodyStyle={{ padding: '16px 20px' }}
           >
             <div style={{ fontWeight: 600, color: colors.textMuted, marginBottom: 12, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Component Info
+
+              {t("Component Info")}
             </div>
-            <InfoRow label="Name" value={component.name} />
-            <InfoRow label="Namespace" value={
+            <InfoRow label={t("Name")} value={component.name} />
+            <InfoRow label={t("Namespace")} value={
               <Tag style={{ background: colors.infoSurface, color: colors.infoText, border: 'none', borderRadius: 4, fontFamily: 'monospace', fontSize: 12 }}>
                 {component.namespace}
               </Tag>
             } />
-            <InfoRow label="Version" value={component.version ? `v${component.version}` : '—'} />
-            <InfoRow label="Status" value={<StatusBadge status={component.status || 'unknown'} />} />
+            <InfoRow label={t("Version")} value={component.version ? `v${component.version}` : '—'} />
+            <InfoRow label={t("Status")} value={<StatusBadge status={component.status || 'unknown'} />} />
             <InfoRow label="Phase" value={component.phase || '—'} />
             {component.createdAt && (
               <InfoRow
-                label="Created"
+                label={t("Created")}
                 value={
                   <Tooltip title={dayjs(component.createdAt).format('YYYY-MM-DD HH:mm:ss')}>
                     <span>{dayjs(component.createdAt).fromNow()}</span>
@@ -332,7 +336,8 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
               {Object.keys(component.labels || {}).length > 0 && (
                 <>
                   <div style={{ fontWeight: 600, color: colors.textMuted, marginBottom: 10, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    Labels
+
+                    {t("Labels")}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
                     {Object.entries(component.labels || {}).map(([k, v]) => (
@@ -346,11 +351,13 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
             </Card>
           )}
         </div>
+        {component.annotations?.['openan.org/agent-card-url'] && <AgentRegistration namespace={namespace} name={name} />}
+        </div>
       ),
     },
     {
       key: 'status',
-      label: 'Status',
+      label: t("Status"),
       children: loadingStatus ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spin /></div>
       ) : status ? (
@@ -389,7 +396,8 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
           {status.conditions && status.conditions.length > 0 && (
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-                Conditions
+
+                {t("Conditions")}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {status.conditions.map((cond, idx) => (
@@ -435,7 +443,7 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
           )}
         </div>
       ) : (
-        <div style={{ color: colors.textMuted, padding: 24 }}>No status information available.</div>
+        <div style={{ color: colors.textMuted, padding: 24 }}>{t("No status information available.")}</div>
       ),
     },
     {
@@ -496,13 +504,14 @@ export default function ComponentDetailBody({ namespace, name, onClose }: Compon
         <div>
           {apis.coreFunction.length === 0 && apis.managementFunction.length === 0 && apis.securityFunction.length === 0 ? (
             <div style={{ color: colors.textMuted, padding: '24px 0', textAlign: 'center' }}>
-              No API definitions found in this component's spec.
+
+              {t("No API definitions found in this component's spec.")}
             </div>
           ) : (
             <>
-              <ApiGroup title="Core Function" apis={apis.coreFunction} />
-              <ApiGroup title="Management Function" apis={apis.managementFunction} />
-              <ApiGroup title="Security Function" apis={apis.securityFunction} />
+              <ApiGroup title={t("Core Function")} apis={apis.coreFunction} />
+              <ApiGroup title={t("Management Function")} apis={apis.managementFunction} />
+              <ApiGroup title={t("Security Function")} apis={apis.securityFunction} />
             </>
           )}
         </div>
@@ -682,7 +691,7 @@ export function RawDocumentView({
             { label: 'JSON', value: 'json' },
           ]}
         />
-        <Button icon={<CopyOutlined />} onClick={onCopy}>Copy</Button>
+        <Button icon={<CopyOutlined />} onClick={onCopy}>{t("Copy")}</Button>
         <Button icon={<DownloadOutlined />} onClick={onDownload}>Download .{format}</Button>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: colors.textMuted, fontFamily: 'monospace' }}>
           {filenameBase}.{format}

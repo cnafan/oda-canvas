@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Alert, Button, Checkbox, Collapse, Form, Input, InputNumber, message, Modal, Select, Spin } from 'antd'
@@ -115,7 +116,8 @@ export default function McpTargetModal({
       onCancel={onClose}
       footer={[
         <Button key="cancel" disabled={save.isPending} onClick={onClose}>
-          Cancel
+
+          {t("Cancel")}
         </Button>,
         <Button key="save" type="primary" loading={save.isPending} onClick={() => form.submit()}>
           {target ? 'Save' : 'Add MCP server'}
@@ -126,7 +128,7 @@ export default function McpTargetModal({
         <Form form={form} layout="vertical" size="small" initialValues={initialValues(target)} onFinish={submit}>
           <Form.Item
             name="name"
-            label="Name"
+            label={t("Name")}
             extra={help('With more than one server, the gateway adds this name to every tool name, such as myserver_echo. Adding, removing or renaming a server can change the names clients use.')}
             rules={[{ required: true, whitespace: true, message: 'Enter a name' }]}
           >
@@ -147,12 +149,12 @@ export default function McpTargetModal({
             </>
           ) : (
             <>
-              <Form.Item name="transport" label="Transport" rules={[{ required: true, message: 'Choose a transport' }]}>
+              <Form.Item name="transport" label={t("Transport")} rules={[{ required: true, message: 'Choose a transport' }]}>
                 <Select options={TRANSPORT_OPTIONS} />
               </Form.Item>
               <Form.Item
                 name="host"
-                label="Host"
+                label={t("Host")}
                 extra={help(
                   target?.backend
                     ? `Connects through the backend ${target.backend}. Enter a host to use that instead.`
@@ -163,10 +165,10 @@ export default function McpTargetModal({
                 <Input autoComplete="off" />
               </Form.Item>
               <div style={{ display: 'flex', gap: 12 }}>
-                <Form.Item name="port" label="Port" style={{ flex: 1 }} extra={help('Only with a plain host name, and with a path.')}>
+                <Form.Item name="port" label={t("Port")} style={{ flex: 1 }} extra={help('Only with a plain host name, and with a path.')}>
                   <InputNumber min={0} max={65535} style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item name="path" label="Path" style={{ flex: 2 }} extra={help('For example /mcp')}>
+                <Form.Item name="path" label={t("Path")} style={{ flex: 2 }} extra={help('For example /mcp')}>
                   <Input autoComplete="off" />
                 </Form.Item>
               </div>

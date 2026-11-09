@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -417,7 +418,7 @@ function buildGatewayBindingTreeNode(binding: GatewayBinding): ResourceTreeNode 
     children.push(...buildApisixPluginConfigNodes(binding))
   } else if (binding.policies?.length) {
     children.push({
-      label: 'Policies',
+      label: t("Policies"),
       children: buildGenericPolicyNodes(binding),
     })
   }
@@ -551,7 +552,7 @@ function GatewayBindingCard({ binding }: { binding: GatewayBinding }) {
           ))}
         </div>
       ) : (
-        <span style={{ fontSize: 11, color: colors.textMuted }}>No plugins attached</span>
+        <span style={{ fontSize: 11, color: colors.textMuted }}>{t("No plugins attached")}</span>
       )}
     </div>
   )
@@ -597,7 +598,7 @@ function ExpandedApiRow({ record }: { record: ExposedAPI }) {
       </div>
 
       <div style={{ flex: 1, minWidth: 320 }}>
-        <SectionLabel>Resource Topology</SectionLabel>
+        <SectionLabel>{t("Resource Topology")}</SectionLabel>
         {bindings.length ? (
           <ResourceTopologyTree record={record} />
         ) : (
@@ -634,7 +635,7 @@ function ExposedAPIsTable() {
       if (api.namespace) seen.add(api.namespace)
     }
     return [
-      { value: 'all', label: 'All Namespaces' },
+      { value: 'all', label: t("All Namespaces") },
       ...Array.from(seen).sort().map((ns) => ({ value: ns, label: ns })),
     ]
   }, [apis])
@@ -672,7 +673,7 @@ function ExposedAPIsTable() {
 
   const columns: ColumnsType<ExposedAPI> = [
     {
-      title: 'API Name',
+      title: t("API Name"),
       key: 'name',
       render: (_value: unknown, record) => (
         <span style={{ fontWeight: 600, fontSize: 13, color: colors.textPrimary }}>
@@ -681,7 +682,7 @@ function ExposedAPIsTable() {
       ),
     },
     {
-      title: 'Status',
+      title: t("Status"),
       key: 'status',
       width: 100,
       sorter: (a, b) => (a.status || '').localeCompare(b.status || ''),
@@ -693,7 +694,7 @@ function ExposedAPIsTable() {
       ),
     },
     {
-      title: 'Version',
+      title: t("Version"),
       dataIndex: 'version',
       key: 'version',
       width: 90,
@@ -738,7 +739,7 @@ function ExposedAPIsTable() {
       },
     },
     {
-      title: 'Rate Limit',
+      title: t("Rate Limit"),
       key: 'rateLimit',
       width: 140,
       render: (_value: unknown, record) => {
@@ -793,7 +794,7 @@ function ExposedAPIsTable() {
       },
     },
     {
-      title: 'Actions',
+      title: t("Actions"),
       key: 'actions',
       width: 150,
       render: (_value: unknown, record) => {
@@ -803,7 +804,7 @@ function ExposedAPIsTable() {
 
         return (
           <Space size={6}>
-            <Tooltip title="Test API endpoint">
+            <Tooltip title={t("Test API endpoint")}>
               <Button
                 size="small"
                 icon={<ExperimentOutlined />}
@@ -822,7 +823,7 @@ function ExposedAPIsTable() {
             </Tooltip>
 
             {isOpenApi && record.url && (
-              <Tooltip title="Open Swagger UI">
+              <Tooltip title={t("Open Swagger UI")}>
                 <Button
                   size="small"
                   icon={<LinkOutlined />}
@@ -883,7 +884,7 @@ function ExposedAPIsTable() {
       >
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Input
-            placeholder="Search APIs by name, namespace, URL or gateway..."
+            placeholder={t("Search APIs by name, namespace, URL or gateway...")}
             prefix={<SearchOutlined style={{ color: colors.textMuted }} />}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -895,7 +896,7 @@ function ExposedAPIsTable() {
             onChange={setApiTypeFilter}
             style={{ width: 150 }}
             options={[
-              { value: 'all', label: 'All API Types' },
+              { value: 'all', label: t("All API Types") },
               { value: 'openapi', label: 'OpenAPI' },
               { value: 'mcp', label: 'MCP' },
               { value: 'prometheus', label: 'Prometheus' },
@@ -908,9 +909,9 @@ function ExposedAPIsTable() {
             onChange={setStatusFilter}
             style={{ width: 160 }}
             options={[
-              { value: 'all', label: 'All Statuses' },
-              { value: 'live', label: 'Live (Ready)' },
-              { value: 'down', label: 'Down (Not Ready)' },
+              { value: 'all', label: t("All Statuses") },
+              { value: 'live', label: t("Live (Ready)") },
+              { value: 'down', label: t("Down (Not Ready)") },
             ]}
           />
           <Select
@@ -948,7 +949,8 @@ function ExposedAPIsTable() {
       >
         {isError && (
           <div style={{ padding: 16, color: colors.statusDown }}>
-            Failed to load exposed APIs. Please try again.
+
+            {t("Failed to load exposed APIs. Please try again.")}
           </div>
         )}
         <Table<ExposedAPI>
@@ -957,7 +959,7 @@ function ExposedAPIsTable() {
           rowKey={(record) => `${record.namespace}/${record.name}`}
           loading={isLoading}
           pagination={{
-            pageSize: 10,
+            defaultPageSize: 10,
             showSizeChanger: true,
             showTotal: (total) => <span style={{ color: colors.textMuted }}>{total} APIs</span>,
           }}
@@ -1017,7 +1019,7 @@ function GatewayResourcesTable({ mode = 'gateway' }: { mode?: 'gateway' | 'mesh'
 
   const columns: ColumnsType<GatewayBinding> = [
     {
-      title: 'Gateway Resource',
+      title: t("Gateway Resource"),
       key: 'resource',
       render: (_value: unknown, record) => {
         const gc = gatewayKindColor(record.kind)
@@ -1048,7 +1050,7 @@ function GatewayResourcesTable({ mode = 'gateway' }: { mode?: 'gateway' | 'mesh'
       ),
     },
     {
-      title: 'Routes',
+      title: t("Routes"),
       key: 'routes',
       width: 260,
       render: (_value: unknown, record) => {
@@ -1165,7 +1167,7 @@ function GatewayResourcesTable({ mode = 'gateway' }: { mode?: 'gateway' | 'mesh'
       },
     },
     {
-      title: 'Details',
+      title: t("Details"),
       key: 'actions',
       width: 100,
       render: (_value: unknown, record) => {
@@ -1265,7 +1267,7 @@ function GatewayResourcesTable({ mode = 'gateway' }: { mode?: 'gateway' | 'mesh'
           rowKey={(record) => `${record.kind}/${record.namespace}/${record.name}`}
           loading={isLoading}
           pagination={{
-            pageSize: 10,
+            defaultPageSize: 10,
             showSizeChanger: true,
             showTotal: (total) => (
               <span style={{ color: colors.textMuted }}>{total} {mode === 'mesh' ? 'mesh' : 'gateway'} resources</span>
@@ -1350,7 +1352,7 @@ function RateLimitingTable() {
       ),
     },
     {
-      title: 'Gateway',
+      title: t("Gateway"),
       key: 'gateway',
       width: 240,
       render: (_value: unknown, record) => {
@@ -1386,7 +1388,7 @@ function RateLimitingTable() {
       ),
     },
     {
-      title: 'Status',
+      title: t("Status"),
       key: 'status',
       width: 100,
       render: (_value: unknown, record) => (
@@ -1464,7 +1466,7 @@ function RateLimitingTable() {
             rowKey={(record) => record.key}
             loading={isLoading}
             pagination={{
-              pageSize: 10,
+              defaultPageSize: 10,
               showSizeChanger: true,
               showTotal: (total) => (
                 <span style={{ color: colors.textMuted }}>{total} rate-limit policies</span>
@@ -1538,7 +1540,7 @@ function PoliciesTable() {
       ),
     },
     {
-      title: 'Gateway',
+      title: t("Gateway"),
       key: 'gateway',
       width: 220,
       render: (_value: unknown, record) => {
@@ -1574,7 +1576,7 @@ function PoliciesTable() {
       ),
     },
     {
-      title: 'Details',
+      title: t("Details"),
       key: 'details',
       render: (_value: unknown, record) => (
         <span style={{ color: colors.textSecondary, fontSize: 12 }}>
@@ -1583,7 +1585,7 @@ function PoliciesTable() {
       ),
     },
     {
-      title: 'Status',
+      title: t("Status"),
       key: 'status',
       width: 100,
       render: (_value: unknown, record) => (
@@ -1621,10 +1623,10 @@ function PoliciesTable() {
             onChange={setCategory}
             style={{ width: 170 }}
             options={[
-              { value: 'all', label: 'All Policies' },
-              { value: 'auth', label: 'Auth Policies' },
-              { value: 'ratelimiting', label: 'Rate Limiting' },
-              { value: 'other', label: 'Other Plugins' },
+              { value: 'all', label: t("All Policies") },
+              { value: 'auth', label: t("Auth Policies") },
+              { value: 'ratelimiting', label: t("Rate Limiting") },
+              { value: 'other', label: t("Other Plugins") },
             ]}
           />
         </div>
@@ -1674,7 +1676,7 @@ function PoliciesTable() {
             rowKey={(record) => record.key}
             loading={isLoading}
             pagination={{
-              pageSize: 10,
+              defaultPageSize: 10,
               showSizeChanger: true,
               showTotal: (total) => <span style={{ color: colors.textMuted }}>{total} policies</span>,
             }}
@@ -1705,7 +1707,7 @@ function DependentAPIsTable() {
       if (r.namespace) seen.add(r.namespace)
     }
     return [
-      { value: 'all', label: 'All Namespaces' },
+      { value: 'all', label: t("All Namespaces") },
       ...Array.from(seen).sort().map((ns) => ({ value: ns, label: ns })),
     ]
   }, [query.data])
@@ -1728,7 +1730,7 @@ function DependentAPIsTable() {
 
   const columns: ColumnsType<DependentAPI> = [
     {
-      title: 'Name',
+      title: t("Name"),
       key: 'name',
       render: (_: unknown, r) => (
         <div>
@@ -1749,19 +1751,19 @@ function DependentAPIsTable() {
       render: (_: unknown, r) => r.segment ? <Tag>{r.segment}</Tag> : <span style={{ color: colors.textMuted }}>—</span>,
     },
     {
-      title: 'Type',
+      title: t("Type"),
       key: 'type',
       width: 110,
       render: (_: unknown, r) => <Tag>{r.apiType || 'openapi'}</Tag>,
     },
     {
-      title: 'Version',
+      title: t("Version"),
       key: 'version',
       width: 90,
       render: (_: unknown, r) => r.version ? <Tag>{r.version}</Tag> : <span style={{ color: colors.textMuted }}>—</span>,
     },
     {
-      title: 'Status',
+      title: t("Status"),
       key: 'status',
       width: 130,
       render: (_: unknown, r) => <StatusBadge status={r.ready ? 'ready' : 'not-ready'} label={r.ready ? 'Resolved' : 'Unresolved'} />,
@@ -1797,7 +1799,7 @@ function DependentAPIsTable() {
       >
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Input
-            placeholder="Search by name, namespace, component, URL..."
+            placeholder={t("Search by name, namespace, component, URL...")}
             prefix={<SearchOutlined style={{ color: colors.textMuted }} />}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -1820,9 +1822,9 @@ function DependentAPIsTable() {
             onChange={setStatusFilter}
             style={{ width: 160 }}
             options={[
-              { value: 'all', label: 'All Statuses' },
-              { value: 'ready', label: 'Resolved' },
-              { value: 'unresolved', label: 'Unresolved' },
+              { value: 'all', label: t("All Statuses") },
+              { value: 'ready', label: t("Resolved") },
+              { value: 'unresolved', label: t("Unresolved") },
             ]}
           />
           <Select
@@ -1843,7 +1845,8 @@ function DependentAPIsTable() {
             onClick={() => query.refetch()}
             loading={query.isFetching}
           >
-            Refresh
+
+            {t("Refresh")}
           </Button>
         </Space>
       </div>
@@ -1853,8 +1856,8 @@ function DependentAPIsTable() {
         loading={query.isLoading}
         columns={columns}
         dataSource={rows}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
-        locale={{ emptyText: query.isError ? (query.error as Error).message : <Empty description="No Dependent APIs" /> }}
+        pagination={{ defaultPageSize: 10, showSizeChanger: true }}
+        locale={{ emptyText: query.isError ? (query.error as Error).message : <Empty description={t("No Dependent APIs")} /> }}
         scroll={{ x: 980 }}
       />
     </div>
@@ -1887,7 +1890,8 @@ export default function ExposedAPIsPage() {
       label: (
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <LinkOutlined />
-          Dependent APIs
+
+          {t("Dependent APIs")}
         </span>
       ),
       children: (
@@ -1898,7 +1902,7 @@ export default function ExposedAPIsPage() {
     },
     {
       key: 'gateway',
-      label: 'API Gateway',
+      label: t("API Gateway"),
       children: (
         <div style={{ padding: '20px 0 0' }}>
           <GatewayResourcesTable mode="gateway" />
@@ -1910,7 +1914,8 @@ export default function ExposedAPIsPage() {
       label: (
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <ClusterOutlined />
-          Service Mesh
+
+          {t("Service Mesh")}
         </span>
       ),
       children: (
@@ -1921,7 +1926,7 @@ export default function ExposedAPIsPage() {
     },
     {
       key: 'policies',
-      label: 'API Policies',
+      label: t("API Policies"),
       children: (
         <div style={{ padding: '20px 0 0' }}>
           <PoliciesTable />
@@ -1950,18 +1955,20 @@ export default function ExposedAPIsPage() {
         </div>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>
-            API Exposure
+
+            {t("API Exposure")}
           </h1>
           <p style={{ fontSize: 13, color: colors.textSecondary, margin: 0 }}>
-            Manage exposed APIs, gateway resources, and plugin policies
+
+            {t("Manage exposed APIs, gateway resources, and plugin policies")}
           </p>
         </div>
         <Segmented
           value={view}
           onChange={(v) => setView(v as 'table' | 'graph')}
           options={[
-            { label: 'Table', value: 'table', icon: <AppstoreOutlined /> },
-            { label: 'Graph', value: 'graph', icon: <NodeIndexOutlined /> },
+            { label: t("Table"), value: 'table', icon: <AppstoreOutlined /> },
+            { label: t("Graph"), value: 'graph', icon: <NodeIndexOutlined /> },
           ]}
         />
       </div>

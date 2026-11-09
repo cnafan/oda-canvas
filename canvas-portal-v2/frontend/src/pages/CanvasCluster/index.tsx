@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Row, Col, Card, Spin, Tag } from 'antd'
@@ -365,14 +366,15 @@ export default function CanvasCluster() {
           }}
         >
           <img
-            src={providerInfo(clusterOverview?.provider).logo}
+            src={getAssetPath(providerInfo(clusterOverview?.provider).logo)}
             alt={providerInfo(clusterOverview?.provider).label}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
           />
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: colors.textPrimary, lineHeight: 1.2 }}>
-            Canvas Cluster
+
+            {t("Canvas Cluster")}
           </div>
           <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
             {providerInfo(clusterOverview?.provider).label}
@@ -384,7 +386,7 @@ export default function CanvasCluster() {
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} lg={8}>
           <StatCard
-            title="Total Components"
+            title={t("Total Components")}
             value={totalComponents}
             icon={<DatabaseOutlined />}
             color={colors.primary}
@@ -394,7 +396,7 @@ export default function CanvasCluster() {
         </Col>
         <Col xs={24} sm={12} lg={8}>
           <StatCard
-            title="Exposed APIs"
+            title={t("Exposed APIs")}
             value={totalApis}
             icon={<ApiOutlined />}
             color={colors.statusLive}
@@ -403,7 +405,7 @@ export default function CanvasCluster() {
         </Col>
         <Col xs={24} sm={12} lg={8}>
           <StatCard
-            title="Operators"
+            title={t("Operators")}
             value={totalOperators}
             icon={<ControlOutlined />}
             color={colors.infoText}
@@ -425,25 +427,25 @@ export default function CanvasCluster() {
             }}
             bodyStyle={{ padding: '14px 18px' }}
           >
-            <SectionTitle>Component Health</SectionTitle>
+            <SectionTitle>{t("Component Health")}</SectionTitle>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {[
                 {
-                  label: 'Ready',
+                  label: t("Ready"),
                   value: readyComponents,
                   color: colors.statusLive,
                   bg: colors.statusLiveBg,
                   icon: <CheckCircleOutlined />,
                 },
                 {
-                  label: 'In Deployment',
+                  label: t("In Deployment"),
                   value: inProgressComponents,
                   color: colors.statusDeprecated,
                   bg: colors.statusDeprecatedBg,
                   icon: <SyncOutlined spin />,
                 },
                 {
-                  label: 'Failed',
+                  label: t("Failed"),
                   value: failedComponents,
                   color: colors.statusDown,
                   bg: colors.statusDownBg,
@@ -502,23 +504,23 @@ export default function CanvasCluster() {
               }}
               bodyStyle={{ padding: '14px 18px' }}
             >
-              <SectionTitle>Kubernetes Resources</SectionTitle>
+              <SectionTitle>{t("Kubernetes Resources")}</SectionTitle>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 {[
                   {
-                    label: 'Nodes',
+                    label: t("Nodes"),
                     value: `${clusterOverview.nodes.ready}/${clusterOverview.nodes.total}`,
                     icon: <NodeIndexOutlined />,
                     color: colors.primary,
                   },
                   {
-                    label: 'Deployments',
+                    label: t("Deployments"),
                     value: `${clusterOverview.deployments.available}/${clusterOverview.deployments.total}`,
                     icon: <DeploymentUnitOutlined />,
                     color: colors.statusLive,
                   },
                   {
-                    label: 'Services',
+                    label: t("Services"),
                     value: clusterOverview.services,
                     icon: <ApiOutlined />,
                     color: colors.infoText,
@@ -629,7 +631,7 @@ export default function CanvasCluster() {
               }}
               bodyStyle={{ padding: '14px 18px' }}
             >
-              <SectionTitle>Capacity</SectionTitle>
+              <SectionTitle>{t("Capacity")}</SectionTitle>
               <CapacityBar
                 label="Pods"
                 used={clusterOverview.pods.total}
@@ -645,7 +647,7 @@ export default function CanvasCluster() {
                 format={fmtCpu}
               />
               <CapacityBar
-                label="Memory"
+                label={t("Memory")}
                 used={clusterOverview.capacity.memoryUsed}
                 total={clusterOverview.capacity.memoryBytes}
                 format={fmtGiB}
@@ -666,10 +668,10 @@ export default function CanvasCluster() {
             }}
             bodyStyle={{ padding: '14px 18px' }}
           >
-            <SectionTitle>Platform Details</SectionTitle>
-            <InfoRow label="Canvas Version" value="ODA Canvas v1.1" />
+            <SectionTitle>{t("Platform Details")}</SectionTitle>
+            <InfoRow label={t("Canvas Version")} value="ODA Canvas v1.1" />
             <InfoRow
-              label="Canvas Type"
+              label={t("Canvas Type")}
               value={
                 <Tag
                   style={{
@@ -685,7 +687,7 @@ export default function CanvasCluster() {
               }
             />
             <InfoRow
-              label="IDM Provider"
+              label={t("IDM Provider")}
               value={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <KeycloakLogo size={20} />
@@ -694,7 +696,7 @@ export default function CanvasCluster() {
               }
             />
             <InfoRow
-              label="API Gateway"
+              label={t("API Gateway")}
               value={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {apiGateway.logo}
@@ -703,7 +705,7 @@ export default function CanvasCluster() {
               }
             />
             <InfoRow
-              label="Platform Status"
+              label={t("Platform Status")}
               value={
                 <span
                   style={{
@@ -727,7 +729,8 @@ export default function CanvasCluster() {
                       display: 'inline-block',
                     }}
                   />
-                  OPERATIONAL
+
+                  {t("OPERATIONAL")}
                 </span>
               }
             />

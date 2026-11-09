@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Modal, Button } from 'antd'
@@ -55,7 +56,8 @@ export default function DefaultCredentialWarning() {
         </div>
 
         <h2 style={{ color: colors.textPrimary, margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>
-          Default ODA Canvas credentials in use
+
+          {t("Default ODA Canvas credentials in use")}
         </h2>
         <p style={{ color: colors.textSecondary, margin: '0 0 12px', fontSize: 14, lineHeight: 1.6 }}>
           You are signed in as
@@ -83,7 +85,8 @@ export default function DefaultCredentialWarning() {
           }}
           onClick={() => setOpen(false)}
         >
-          I understand
+
+          {t("I understand")}
         </Button>
       </div>
     </Modal>

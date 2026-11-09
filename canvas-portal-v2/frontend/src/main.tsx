@@ -1,3 +1,5 @@
+import zhCN from 'antd/locale/zh_CN';
+import { currentLanguage } from '@/i18n';
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -43,7 +45,7 @@ function Root() {
 }
 
 function AuthenticatedRoot() {
-  const { showWarning, secondsLeft, continueSession } = useSessionManager();
+  const { showWarning, secondsLeft, continuing, continueError, continueSession } = useSessionManager();
   return (
     <>
       <App />
@@ -51,6 +53,8 @@ function AuthenticatedRoot() {
       <SessionWarningModal
         open={showWarning}
         secondsLeft={secondsLeft}
+        continuing={continuing}
+        continueError={continueError}
         onContinue={continueSession}
       />
     </>
@@ -61,7 +65,7 @@ function ThemedRoot() {
   const { antdTheme } = useThemeMode();
 
   return (
-    <ConfigProvider theme={antdTheme}>
+    <ConfigProvider theme={antdTheme} locale={currentLanguage() === 'zh' ? zhCN : undefined}>
       <Root />
     </ConfigProvider>
   );

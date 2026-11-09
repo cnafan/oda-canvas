@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { Alert, Button, Modal, Space, Spin, Tag } from 'antd'
@@ -110,7 +111,8 @@ function ToolInspector({ tool }: { tool: McpTool }) {
             if (args) run((signal) => callMcpTool(tool.name, args, signal))
           }}
         >
-          Call tool
+
+          {t("Call tool")}
         </Button>
       </div>
       <CallResult state={state} callMethod="tools/call" runningText="Calling the tool" />
@@ -149,7 +151,7 @@ export default function McpInspectorModal({ item, onClose }: { item: InspectedIt
       width={720}
       maskClosable={false}
       onCancel={onClose}
-      footer={<Button onClick={onClose}>Close</Button>}
+      footer={<Button onClick={onClose}>{t("Close")}</Button>}
     >
       {item.kind === 'tool' ? <ToolInspector tool={item.tool} /> : <ResourceInspector resource={item.resource} />}
     </Modal>

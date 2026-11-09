@@ -1,3 +1,4 @@
+import { t, currentLanguage } from '@/i18n'
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Input, Select, Button, Drawer, Grid } from 'antd'
@@ -106,7 +107,8 @@ export default function ComponentsPage() {
             </div>
             <div>
               <h1 style={{ fontSize: 24, fontWeight: 760, color: colors.textPrimary, margin: 0 }}>
-                Component Inventory
+
+                {t("Component Inventory")}
               </h1>
             </div>
           </div>
@@ -120,7 +122,8 @@ export default function ComponentsPage() {
                 color: colors.primary,
               }}
             >
-              Deploy
+
+              {t("Deploy")}
             </Button>
             <Button
               icon={<SyncOutlined />}
@@ -142,7 +145,8 @@ export default function ComponentsPage() {
                 color: colors.textSecondary,
               }}
             >
-              Refresh
+
+              {t("Refresh")}
             </Button>
           </div>
         </div>
@@ -150,7 +154,7 @@ export default function ComponentsPage() {
         {/* Filters */}
         <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
           <Input
-            placeholder="Search components..."
+            placeholder={t("Search components...")}
             prefix={<SearchOutlined style={{ color: colors.textMuted }} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -162,7 +166,7 @@ export default function ComponentsPage() {
             onChange={setNsFilter}
             style={{ width: 220 }}
             options={[
-              { value: 'all', label: 'All Namespaces' },
+              { value: 'all', label: t("All Namespaces") },
               ...namespaces.map((ns) => ({ value: ns, label: ns })),
             ]}
           />
@@ -243,7 +247,8 @@ export default function ComponentsPage() {
               cursor: 'pointer',
             }}
           >
-            Clear
+
+            {t("Clear")}
           </button>
         )}
       </div>
@@ -267,7 +272,8 @@ export default function ComponentsPage() {
             letterSpacing: 1,
           }}
         >
-          Components Map
+
+          {t("Components Map")}
         </div>
         {!isLoading && !isError && (
           <span style={{ fontSize: 11, color: colors.textMuted }}>
@@ -286,13 +292,15 @@ export default function ComponentsPage() {
             borderRadius: 8,
           }}
         >
-          Failed to load components. Please try again.
+
+          {t("Failed to load components. Please try again.")}
         </div>
       )}
 
       {isLoading && (
         <div style={{ padding: 40, textAlign: 'center', color: colors.textMuted }}>
-          Loading components…
+
+          {t("Loading components…")}
         </div>
       )}
 
@@ -331,7 +339,7 @@ export default function ComponentsPage() {
             </span>
             <span style={{ color: colors.border }}>·</span>
             <span style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 600 }}>
-              {selected ? `${selected.namespace}/${selected.name}` : picker ? picker.label : ''}
+              {selected ? `${selected.namespace}/${selected.name}` : picker ? t(picker.label) : ''}
             </span>
           </div>
         }
@@ -357,7 +365,7 @@ export default function ComponentsPage() {
                   cursor: 'pointer',
                 }}
               >
-                ‹ Back to {picker.instances.length} instances
+                {currentLanguage() === 'zh' ? `‹ 返回 ${picker.instances.length} 个实例` : `‹ Back to ${picker.instances.length} instances`}
               </button>
             )}
             <ComponentDetailBody
@@ -390,8 +398,12 @@ function InstancePicker({
   return (
     <div>
       <div style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 16 }}>
-        <strong style={{ color: colors.textPrimary }}>{instances.length}</strong> installed instances of{' '}
-        <strong style={{ color: colors.textPrimary }}>{label}</strong>. Select one to view its details.
+        {currentLanguage() === 'zh' ? (
+          <>“<strong style={{ color: colors.textPrimary }}>{t(label)}</strong>”已安装 {instances.length} 个实例，请选择一个查看详情。</>
+        ) : (
+          <><strong style={{ color: colors.textPrimary }}>{instances.length}</strong> installed instances of{' '}
+          <strong style={{ color: colors.textPrimary }}>{label}</strong>. Select one to view its details.</>
+        )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {instances.map((instance) => (

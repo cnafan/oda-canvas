@@ -83,7 +83,7 @@ export const TMF_COMPONENT_CATALOG: TmfCatalogDomain[] = [
       { name: 'Commission Management', code: 'TMFC059', aliases: ['commissionmanagement'] },
       {
         name: 'Product Assurance Management',
-        aliases: ['productassurancemanagement'],
+        aliases: ['productassurancemanagement', 'serviceassurancemanagement', 'assuranceagent'],
       },
       {
         name: 'Product Catalog Management',

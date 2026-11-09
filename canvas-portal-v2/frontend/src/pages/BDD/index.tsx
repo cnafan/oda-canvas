@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnsType } from 'antd/es/table'
@@ -55,10 +56,10 @@ function statusTag(run: CanvasConformanceRun) {
     return <Tag icon={<CheckCircleOutlined />} color="success">Succeeded</Tag>
   }
   if (run.status === 'failed') {
-    return <Tag icon={<CloseCircleOutlined />} color="error">Failed</Tag>
+    return <Tag icon={<CloseCircleOutlined />} color="error">{t("Failed")}</Tag>
   }
   if (run.status === 'running') {
-    return <Tag icon={<SyncOutlined spin />} color="processing">Running</Tag>
+    return <Tag icon={<SyncOutlined spin />} color="processing">{t("Running")}</Tag>
   }
   if (run.status === 'queued') {
     return <Tag icon={<ClockCircleOutlined />} color="warning">Queued</Tag>
@@ -130,7 +131,8 @@ function ComingSoon({
             fontWeight: 700,
           }}
         >
-          WORK IN PROGRESS
+
+          {t("WORK IN PROGRESS")}
         </Tag>
       </div>
       <p
@@ -278,7 +280,7 @@ function CanvasSuite() {
 
   const columns: ColumnsType<CanvasConformanceRun> = [
     {
-      title: 'Run',
+      title: t("Run"),
       dataIndex: 'id',
       width: 130,
       render: (id: string, run) => (
@@ -288,7 +290,7 @@ function CanvasSuite() {
       ),
     },
     {
-      title: 'Status',
+      title: t("Status"),
       dataIndex: 'status',
       width: 130,
       render: (_: string, run) => statusTag(run),
@@ -300,31 +302,31 @@ function CanvasSuite() {
       render: (value: CanvasConformanceRunMode) => value,
     },
     {
-      title: 'Started',
+      title: t("Started"),
       dataIndex: 'started_at',
       width: 180,
       render: formatDate,
     },
     {
-      title: 'Duration',
+      title: t("Duration"),
       dataIndex: 'duration_seconds',
       width: 110,
       render: formatDuration,
     },
     {
-      title: 'Result',
+      title: t("Result"),
       dataIndex: 'result',
       render: (_, run) => (
         <Space size={6} wrap>
           <Tag color="success">P {run.result.passed}</Tag>
           <Tag color="error">F {run.result.failed}</Tag>
           <Tag>S {run.result.skipped}</Tag>
-          <Tag>Total {run.result.total}</Tag>
+          <Tag>{t("Total")} {run.result.total}</Tag>
         </Space>
       ),
     },
     {
-      title: 'Actions',
+      title: t("Actions"),
       key: 'actions',
       width: 150,
       render: (_, run) => {
@@ -347,9 +349,9 @@ function CanvasSuite() {
             <Popconfirm
               title="Delete this run?"
               description="The run record, log file, and cucumber report will be permanently deleted."
-              okText="Delete"
+              okText={t("Delete")}
               okButtonProps={{ danger: true }}
-              cancelText="Cancel"
+              cancelText={t("Cancel")}
               onConfirm={() => handleDeleteRun(run.id)}
               disabled={isActive}
             >
@@ -374,12 +376,14 @@ function CanvasSuite() {
         title={
           <Space>
             <ClusterOutlined />
-            Canvas Conformance Suite
+
+            {t("Canvas Conformance Suite")}
           </Space>
         }
         extra={
           <Button icon={<ReloadOutlined />} onClick={() => runsQuery.refetch()} loading={runsQuery.isFetching}>
-            Refresh
+
+            {t("Refresh")}
           </Button>
         }
       >
@@ -466,7 +470,8 @@ function CanvasSuite() {
             </Button>
             {activeRun && (
               <Typography.Text type="secondary">
-                Run {activeRun.id} is {activeRun.phase}: {activeRun.message}
+
+                {t("Run")} {activeRun.id} is {activeRun.phase}: {activeRun.message}
               </Typography.Text>
             )}
           </Space>
@@ -478,7 +483,8 @@ function CanvasSuite() {
           title={
             <Space>
               <FileTextOutlined />
-              Run {selectedRun.id}
+
+              {t("Run")} {selectedRun.id}
             </Space>
           }
           extra={statusTag(selectedRun)}
@@ -487,11 +493,11 @@ function CanvasSuite() {
             <Progress percent={selectedRun.progress} status={selectedRun.status === 'failed' ? 'exception' : undefined} />
             <Descriptions bordered size="small" column={{ xs: 1, md: 3 }}>
               <Descriptions.Item label="Phase">{selectedRun.phase}</Descriptions.Item>
-              <Descriptions.Item label="Started">{formatDate(selectedRun.started_at)}</Descriptions.Item>
-              <Descriptions.Item label="Finished">{formatDate(selectedRun.finished_at)}</Descriptions.Item>
-              <Descriptions.Item label="Mode">{selectedRun.mode}</Descriptions.Item>
+              <Descriptions.Item label={t("Started")}>{formatDate(selectedRun.started_at)}</Descriptions.Item>
+              <Descriptions.Item label={t("Finished")}>{formatDate(selectedRun.finished_at)}</Descriptions.Item>
+              <Descriptions.Item label={t("Mode")}>{selectedRun.mode}</Descriptions.Item>
               <Descriptions.Item label="Branch">{selectedRun.branch}</Descriptions.Item>
-              <Descriptions.Item label="Exit code">{selectedRun.exit_code ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label={t("Exit code")}>{selectedRun.exit_code ?? '-'}</Descriptions.Item>
             </Descriptions>
             <Typography.Text>{selectedRun.message}</Typography.Text>
             {selectedRun.features.length > 0 && (
@@ -530,7 +536,8 @@ function CanvasSuite() {
         title={
           <Space>
             <HistoryOutlined />
-            Validation history
+
+            {t("Validation history")}
           </Space>
         }
       >
@@ -602,13 +609,13 @@ export default function BDDPage() {
             key: 'components',
             label: (
               <span>
-                <AppstoreOutlined /> Components
+                <AppstoreOutlined />  {t("Components")}
               </span>
             ),
             children: (
               <ComingSoon
                 icon={<AppstoreOutlined />}
-                title="Component Conformance Suite"
+                title={t("Component Conformance Suite")}
                 description="Pick a deployed component and run its TMF functional-block scenarios. Results are stored per component."
               />
             ),

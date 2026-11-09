@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useMemo } from 'react'
 import { Button, Descriptions, Drawer, Empty, Space, Tabs, Tag } from 'antd'
 
@@ -76,15 +77,15 @@ export default function NodeDetailsDrawer({
         items={[
           {
             key: 'overview',
-            label: 'Overview',
+            label: t("Overview"),
             children: (
               <div>
                 <Descriptions bordered size="small" column={1}>
-                  <Descriptions.Item label="Resource">{node.label}</Descriptions.Item>
-                  <Descriptions.Item label="Type">{nodeTypeLabel(node.nodeType)}</Descriptions.Item>
-                  {node.namespace && <Descriptions.Item label="Namespace">{node.namespace}</Descriptions.Item>}
+                  <Descriptions.Item label={t("Resource")}>{node.label}</Descriptions.Item>
+                  <Descriptions.Item label={t("Type")}>{nodeTypeLabel(node.nodeType)}</Descriptions.Item>
+                  {node.namespace && <Descriptions.Item label={t("Namespace")}>{node.namespace}</Descriptions.Item>}
                   {node.url && (
-                    <Descriptions.Item label="Endpoint">
+                    <Descriptions.Item label={t("Endpoint")}>
                       <a href={node.url} target="_blank" rel="noreferrer">{node.url}</a>
                     </Descriptions.Item>
                   )}
@@ -92,14 +93,14 @@ export default function NodeDetailsDrawer({
                     <Descriptions.Item key={item.label} label={item.label}>{item.value}</Descriptions.Item>
                   ))}
                 </Descriptions>
-                <SectionTitle>Connectivity</SectionTitle>
+                <SectionTitle>{t("Connectivity")}</SectionTitle>
                 <ConnectionSummary incoming={incoming.length} outgoing={outgoing.length} />
               </div>
             ),
           },
           {
             key: 'routing',
-            label: 'Routing',
+            label: t("Routing"),
             children: (
               <div>
                 {details.length > 0 && (
@@ -109,16 +110,16 @@ export default function NodeDetailsDrawer({
                         <Descriptions.Item key={item.label} label={item.label}>{item.value}</Descriptions.Item>
                       ))}
                     </Descriptions>
-                    <SectionTitle>Relationships</SectionTitle>
+                    <SectionTitle>{t("Relationships")}</SectionTitle>
                   </>
                 )}
                 <ResourceConnections
-                  title="Incoming"
+                  title={t("Incoming")}
                   resources={incoming}
                   onSelectNode={onSelectNode}
                 />
                 <ResourceConnections
-                  title="Outgoing"
+                  title={t("Outgoing")}
                   resources={outgoing}
                   onSelectNode={onSelectNode}
                 />
@@ -127,7 +128,7 @@ export default function NodeDetailsDrawer({
           },
           {
             key: 'raw',
-            label: 'Raw data',
+            label: t("Raw data"),
             children: (
               <pre style={{
                 background: colors.codeBg, color: colors.codeText, padding: 14,
@@ -175,7 +176,7 @@ function ResourceConnections({
                   {nodeTypeLabel(item.node.nodeType)} - {LINK_STYLES[item.relation].label}
                 </div>
               </div>
-              <Button size="small" onClick={() => onSelectNode(item.node)}>Open</Button>
+              <Button size="small" onClick={() => onSelectNode(item.node)}>{t("Open")}</Button>
             </div>
           ))}
         </div>

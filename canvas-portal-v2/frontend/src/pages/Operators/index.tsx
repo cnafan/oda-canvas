@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, Row, Col, Tag, Spin, Button, Tooltip, Progress, Modal } from 'antd'
@@ -120,7 +121,7 @@ function OperatorCard({ operator, onViewDetails }: OperatorCardProps) {
         <div style={{ padding: '16px 20px' }}>
           {/* Image */}
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 4 }}>Image</div>
+            <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 4 }}>{t("Image")}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span
                 style={{
@@ -183,7 +184,7 @@ function OperatorCard({ operator, onViewDetails }: OperatorCardProps) {
                 marginBottom: 6,
               }}
             >
-              <span style={{ fontSize: 11, color: colors.textMuted }}>Pods Ready</span>
+              <span style={{ fontSize: 11, color: colors.textMuted }}>{t("Pods Ready")}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: colors.textPrimary }}>
                 {operator.ready} / {operator.desired}
               </span>
@@ -218,7 +219,8 @@ function OperatorCard({ operator, onViewDetails }: OperatorCardProps) {
               }}
             >
               <InfoCircleOutlined />
-              View deployment details
+
+              {t("View deployment details")}
             </button>
           </div>
 
@@ -291,7 +293,7 @@ function OperatorCard({ operator, onViewDetails }: OperatorCardProps) {
                           {pod.restarts}R
                         </Tag>
                       )}
-                      <Tooltip title="View logs">
+                      <Tooltip title={t("View logs")}>
                         <button
                           type="button"
                           onClick={() => setLogModal({ pod })}
@@ -309,7 +311,8 @@ function OperatorCard({ operator, onViewDetails }: OperatorCardProps) {
                           }}
                         >
                           <FileTextOutlined style={{ fontSize: 11 }} />
-                          Logs
+
+                          {t("Logs")}
                         </button>
                       </Tooltip>
                     </div>
@@ -415,7 +418,7 @@ export default function OperatorsPage() {
               Canvas Operators
             </h1>
             <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>
-              {runningCount} of {totalCount} healthy
+              {runningCount} of {totalCount}  {t("healthy")}
             </p>
           </div>
         </div>
@@ -428,17 +431,18 @@ export default function OperatorsPage() {
             color: colors.textSecondary,
           }}
         >
-          Refresh
+
+          {t("Refresh")}
         </Button>
       </div>
 
       {/* Summary stats */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
-          { label: 'Total', value: totalCount, color: colors.primary },
-          { label: 'Running', value: runningCount, color: colors.statusLive },
-          { label: 'Degraded', value: operators?.filter((o) => o.status === 'degraded').length ?? 0, color: colors.statusDeprecated },
-          { label: 'Down', value: operators?.filter((o) => o.status === 'down').length ?? 0, color: colors.statusDown },
+          { label: t("Total"), value: totalCount, color: colors.primary },
+          { label: t("Running"), value: runningCount, color: colors.statusLive },
+          { label: t("Degraded"), value: operators?.filter((o) => o.status === 'degraded').length ?? 0, color: colors.statusDeprecated },
+          { label: t("Down"), value: operators?.filter((o) => o.status === 'down').length ?? 0, color: colors.statusDown },
         ].map((stat) => (
           <div
             key={stat.label}

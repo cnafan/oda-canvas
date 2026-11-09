@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { DatabaseOutlined } from '@ant-design/icons'
 import { useRegistrySources } from '@/api/registries'
@@ -9,22 +10,22 @@ import SkillRegistry from './SkillRegistry'
 const sections: PageSection[] = [
   {
     key: 'agents',
-    title: 'Agents',
-    description: 'Registry of AI agents available to the Canvas.',
+    title: t("Agents"),
+    description: t("Registry of AI agents available to the Canvas."),
     content: <AgentRegistry />,
   },
   {
     key: 'skills',
-    title: 'Skills',
-    description: 'Skills advertised by the agents in every configured registry.',
+    title: t("Skills"),
+    description: t("Skills advertised by the agents in every configured registry."),
     content: <SkillRegistry />,
   },
 ]
 
 const sourcesSection: PageSection = {
   key: 'sources',
-  title: 'Manage Registries',
-  description: 'Manually configure agent and skill registries',
+  title: t("Manage Registries"),
+  description: t("Manually configure agent and skill registries"),
   content: <RegistrySources />,
 }
 
@@ -33,8 +34,8 @@ export default function RegistriesPage() {
 
   return (
     <SectionedPage
-      title="Registries"
-      description="Catalogs of agents and skills"
+      title={t("Registries")}
+      description={t("Catalogs of agents and skills")}
       icon={<DatabaseOutlined />}
       sections={data?.canManage ? [...sections, sourcesSection] : sections}
     />

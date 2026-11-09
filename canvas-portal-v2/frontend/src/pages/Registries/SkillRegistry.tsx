@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { Input, Select, Tag } from 'antd'
 import { RightOutlined, SearchOutlined } from '@ant-design/icons'
@@ -7,6 +8,7 @@ import { HexBadge } from '@/components/ComponentTopology'
 import { colors } from '@/theme'
 import { ACTIVE_PAINT, IDLE_PAINT, Notice, tileProps } from './AgentRegistry'
 import { isActiveAgent } from './AgentDetailBody'
+import { displayAgentName } from './displayAgentName'
 
 interface SkillEntry {
   key: string
@@ -30,11 +32,12 @@ function SkillTile({ entry, onSelect }: { entry: SkillEntry; onSelect: () => voi
   const active = isActiveAgent(agent.publishStatus)
   const tile = tileProps(active)
   const skillName = skill.name ?? skill.id ?? 'Unnamed skill'
+  const agentName = displayAgentName(agent.name, agent.provider?.organization)
 
   return (
     <button
       type="button"
-      aria-label={`Open ${agent.name}, which provides ${skillName}`}
+      aria-label={`Open ${agentName}, which provides ${skillName}`}
       onClick={onSelect}
       {...tile}
       style={{ ...tile.style, alignItems: 'flex-start' }}
@@ -68,7 +71,7 @@ function SkillTile({ entry, onSelect }: { entry: SkillEntry; onSelect: () => voi
           </div>
         )}
         <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 6, overflowWrap: 'anywhere' }}>
-          {agent.name}
+          {agentName}
           {agent.registry && ` · ${agent.registry.name}`}
         </div>
       </div>
@@ -103,7 +106,7 @@ export default function SkillRegistry() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Input
-          placeholder="Search skills..."
+          placeholder={t("Search skills...")}
           prefix={<SearchOutlined style={{ color: colors.textMuted }} />}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -116,7 +119,7 @@ export default function SkillRegistry() {
             onChange={setRegistryFilter}
             style={{ width: 220 }}
             options={[
-              { value: 'all', label: 'All Registries' },
+              { value: 'all', label: t("All Registries") },
               ...registries.map((registry) => ({ value: registry?.id ?? '', label: registry?.name ?? '' })),
             ]}
           />
@@ -130,12 +133,12 @@ export default function SkillRegistry() {
       </div>
 
       {isError && <Notice tone="error">{registryErrorMessage(error)}</Notice>}
-      {isLoading && <Notice>Loading skills…</Notice>}
+      {isLoading && <Notice>{t("Loading skills…")}</Notice>}
       {!isLoading && !isError && entries.length === 0 && (
-        <Notice>No skills are advertised by the listed agents.</Notice>
+        <Notice>{t("No skills are advertised by the listed agents.")}</Notice>
       )}
       {!isLoading && !isError && entries.length > 0 && filtered.length === 0 && (
-        <Notice>No skills match the current filters.</Notice>
+        <Notice>{t("No skills match the current filters.")}</Notice>
       )}
       {!isLoading && !isError && filtered.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>

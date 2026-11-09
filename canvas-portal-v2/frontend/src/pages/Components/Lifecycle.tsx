@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Card, Tag } from 'antd'
@@ -73,7 +74,8 @@ export default function ComponentsLifecyclePage() {
           </div>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>
-              Component Lifecycle Mgmt
+
+              {t("Component Lifecycle Mgmt")}
             </h1>
           </div>
         </div>
@@ -87,7 +89,8 @@ export default function ComponentsLifecyclePage() {
               color: colors.textSecondary,
             }}
           >
-            Inventory
+
+            {t("Inventory")}
           </Button>
           <Button
             icon={<UploadOutlined />}
@@ -98,7 +101,8 @@ export default function ComponentsLifecyclePage() {
               color: colors.textSecondary,
             }}
           >
-            Deploy
+
+            {t("Deploy")}
           </Button>
           <Button
             icon={<ReloadOutlined />}
@@ -109,7 +113,8 @@ export default function ComponentsLifecyclePage() {
               color: colors.textSecondary,
             }}
           >
-            Refresh
+
+            {t("Refresh")}
           </Button>
         </div>
       </div>
@@ -137,7 +142,8 @@ export default function ComponentsLifecyclePage() {
             marginRight: 4,
           }}
         >
-          Release actions
+
+          {t("Release actions")}
         </div>
         <Button
           icon={<UploadOutlined />}
@@ -148,7 +154,8 @@ export default function ComponentsLifecyclePage() {
             color: colors.primary,
           }}
         >
-          Upgrade
+
+          {t("Upgrade")}
         </Button>
         <Button
           icon={<DeleteOutlined />}
@@ -159,7 +166,8 @@ export default function ComponentsLifecyclePage() {
             color: colors.statusDown,
           }}
         >
-          Uninstall
+
+          {t("Uninstall")}
         </Button>
         <Button
           icon={<HistoryOutlined />}
@@ -170,7 +178,8 @@ export default function ComponentsLifecyclePage() {
             color: colors.textSecondary,
           }}
         >
-          History
+
+          {t("History")}
         </Button>
       </div>
 
@@ -192,7 +201,8 @@ export default function ComponentsLifecyclePage() {
             marginBottom: 12,
           }}
         >
-          Namespace Scope
+
+          {t("Namespace Scope")}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {releaseNamespaces.map((namespace) => (

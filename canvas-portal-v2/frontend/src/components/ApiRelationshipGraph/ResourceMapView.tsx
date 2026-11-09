@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import dagre from '@dagrejs/dagre'
@@ -281,7 +282,7 @@ ${cells.join('\n')}
         gap: 14, flexWrap: 'wrap', marginBottom: isFullscreen ? 0 : 14,
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 650, color: colors.textPrimary }}>Component relationship map</div>
+          <div style={{ fontSize: 14, fontWeight: 650, color: colors.textPrimary }}>{t("Component relationship map")}</div>
           <div style={{ fontSize: 12, color: colors.textSecondary }}>
             Select one or multiple components to display their complete API entry paths and dependencies.
           </div>
@@ -289,7 +290,7 @@ ${cells.join('\n')}
         <Space wrap size={10}>
           <Select
             allowClear
-            placeholder="All namespaces"
+            placeholder={t("All namespaces")}
             value={namespace}
             onChange={setNamespace}
             style={{ width: 180 }}
@@ -301,7 +302,7 @@ ${cells.join('\n')}
             value={selectedComponentIds}
             onChange={setSelectedComponentIds}
             optionFilterProp="label"
-            placeholder="Select components"
+            placeholder={t("Select components")}
             maxTagCount="responsive"
             options={components.map((node) => ({
               value: node.id,
@@ -313,7 +314,8 @@ ${cells.join('\n')}
             disabled={components.length === 0}
             onClick={() => setSelectedComponentIds(components.map((node) => node.id))}
           >
-            Select all
+
+            {t("Select all")}
           </Button>
         </Space>
       </div>
@@ -337,7 +339,7 @@ ${cells.join('\n')}
               ],
             }}
           >
-            <Button icon={<DownloadOutlined />}>Export</Button>
+            <Button icon={<DownloadOutlined />}>{t("Export")}</Button>
           </Dropdown>
           <Button
             icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
@@ -347,7 +349,7 @@ ${cells.join('\n')}
           </Button>
           <Space.Compact>
             <Button aria-label="Zoom out" icon={<MinusOutlined />} onClick={() => zoomBy(0.82)} />
-            <Button icon={<CompressOutlined />} onClick={fitToScreen}>Fit</Button>
+            <Button icon={<CompressOutlined />} onClick={fitToScreen}>{t("Fit")}</Button>
             <Button aria-label="Zoom in" icon={<PlusOutlined />} onClick={() => zoomBy(1.22)} />
           </Space.Compact>
         </Space>

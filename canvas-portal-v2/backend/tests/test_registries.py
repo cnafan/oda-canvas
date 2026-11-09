@@ -120,15 +120,28 @@ def test_non_object_json_becomes_502(upstream):
     assert client.get("/api/registries/agents").status_code == 502
 
 
-@pytest.mark.parametrize("missing", ["REGISTRY_CENTER_URL", "REGISTRY_CENTER_TOKEN"])
-def test_not_configured_is_503(monkeypatch, missing):
-    monkeypatch.setenv(missing, "")
+def test_not_configured_is_503(monkeypatch):
+    monkeypatch.setenv("REGISTRY_CENTER_URL", "")
     get_settings.cache_clear()
 
     response = client.get("/api/registries/agents")
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Registry Center not configured"
+
+
+def test_builtin_without_token_uses_public_discovery_even_for_admin(monkeypatch, upstream):
+    monkeypatch.setenv("REGISTRY_CENTER_TOKEN", "")
+    get_settings.cache_clear()
+    calls = upstream()
+
+    response = client.get("/api/registries/agents")
+
+    assert response.status_code == 200
+    assert response.json()["fullAccess"] is False
+    assert [agent["publishStatus"] for agent in response.json()["agents"]] == ["published"]
+    assert [call["url"] for call in calls] == [f"http://rc:5000{API}/agent-cards"]
+    assert calls[0]["headers"] == {}
 
 
 def test_detail_of_unpublished_agent_without_layer(upstream):

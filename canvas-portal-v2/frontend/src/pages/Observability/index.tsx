@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Card, Col, Row, Spin, Tag, Tooltip } from 'antd'
@@ -44,7 +45,7 @@ function badgeStyle(tool: ObservabilityTool): { color: string; background: strin
     return {
       color: colors.primary,
       background: colors.primarySurface,
-      label: 'Declared in chart',
+      label: t("Declared in chart"),
       icon: <CheckCircleOutlined />,
     }
   }
@@ -52,7 +53,7 @@ function badgeStyle(tool: ObservabilityTool): { color: string; background: strin
     return {
       color: colors.statusLive,
       background: colors.statusLiveBg,
-      label: 'Found in cluster',
+      label: t("Found in cluster"),
       icon: <CheckCircleOutlined />,
     }
   }
@@ -60,7 +61,7 @@ function badgeStyle(tool: ObservabilityTool): { color: string; background: strin
     return {
       color: colors.statusDown,
       background: colors.statusDownBg,
-      label: 'Found in cluster (degraded)',
+      label: t("Found in cluster (degraded)"),
       icon: <CloseCircleOutlined />,
     }
   }
@@ -137,7 +138,7 @@ function ToolCard({ tool }: { tool: ObservabilityTool }) {
       <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
         {tool.source !== 'chart' && (
           <div>
-            <div style={{ color: colors.textMuted, fontSize: 11, marginBottom: 3 }}>Internal URL</div>
+            <div style={{ color: colors.textMuted, fontSize: 11, marginBottom: 3 }}>{t("Internal URL")}</div>
             <div
               title={tool.internalUrl || 'Unavailable'}
               style={{
@@ -188,7 +189,8 @@ function ToolCard({ tool }: { tool: ObservabilityTool }) {
           fontWeight: 600,
         }}
       >
-        Open {tool.name}
+
+        {t("Open")} {tool.name}
       </Button>
     </Card>
   )
@@ -223,10 +225,12 @@ export default function ObservabilityPage() {
           </div>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>
-              Observability
+
+              {t("Observability")}
             </h1>
             <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>
-              Telemetry tools
+
+              {t("Telemetry tools")}
             </p>
           </div>
         </div>
@@ -241,7 +245,8 @@ export default function ObservabilityPage() {
             borderRadius: 8,
           }}
         >
-          Refresh
+
+          {t("Refresh")}
         </Button>
       </div>
 

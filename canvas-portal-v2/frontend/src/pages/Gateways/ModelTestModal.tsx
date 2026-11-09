@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Modal, Space, Spin, Tag } from 'antd'
 import { streamModelTest } from '@/api/aiGateways'
@@ -89,7 +90,7 @@ export default function ModelTestModal({ model, onClose }: { model: string; onCl
       width={640}
       maskClosable={false}
       onCancel={onClose}
-      footer={<Button onClick={onClose}>Close</Button>}
+      footer={<Button onClick={onClose}>{t("Close")}</Button>}
     >
       <Space direction="vertical" size={12} style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>

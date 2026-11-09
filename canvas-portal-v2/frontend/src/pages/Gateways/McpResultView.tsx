@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { Alert, Collapse, Space, Tabs, Tag } from 'antd'
 import type { McpCallOutcome, McpExchange } from '@/api/aiGateways'
@@ -98,7 +99,7 @@ function outcomeOf(outcome: McpCallOutcome, callMethod: string): { kind: McpOutc
 }
 
 const OUTCOME_TAGS: Record<McpOutcomeKind, { color: string; label: string }> = {
-  success: { color: 'green', label: 'Success' },
+  success: { color: 'green', label: t("Success") },
   toolError: { color: 'red', label: 'Tool returned an error' },
   protocolError: { color: 'red', label: 'JSON-RPC error' },
   failed: { color: 'red', label: 'Call failed' },
@@ -159,11 +160,11 @@ function ProtocolPane({ exchanges }: { exchanges: McpExchange[] }) {
           children: (
             <Space direction="vertical" size={8} style={{ width: '100%' }}>
               <div>
-                <div style={labelStyle}>Request</div>
+                <div style={labelStyle}>{t("Request")}</div>
                 <pre style={preStyle}>{JSON.stringify(exchange.request, null, 2)}</pre>
               </div>
               <div>
-                <div style={labelStyle}>Response</div>
+                <div style={labelStyle}>{t("Response")}</div>
                 <pre style={preStyle}>
                   {exchange.response ? JSON.stringify(exchange.response, null, 2) : 'No JSON-RPC response.'}
                 </pre>
@@ -189,10 +190,10 @@ export default function McpResultView({ outcome, callMethod }: { outcome: McpCal
         items={[
           {
             key: 'result',
-            label: 'Result',
+            label: t("Result"),
             children: <ResultPane outcome={outcome} callMethod={callMethod} kind={kind} message={message} />,
           },
-          { key: 'protocol', label: 'Protocol', children: <ProtocolPane exchanges={outcome.exchanges} /> },
+          { key: 'protocol', label: t("Protocol"), children: <ProtocolPane exchanges={outcome.exchanges} /> },
         ]}
       />
     </div>

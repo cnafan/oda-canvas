@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { getTokenExpiry, getTokenIssuedAt, refreshAccessToken, renewAccessToken, logout } from '@/lib/auth'
+import { getTokenExpiry, getTokenIssuedAt, requestNewToken, renewAccessToken, logout } from '@/lib/auth'
 
 // Show warning this many ms before the access token expires
 const WARN_BEFORE_MS = 2 * 60 * 1000   // 2 minutes
@@ -16,6 +16,8 @@ const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scr
 export function useSessionManager() {
   const [showWarning, setShowWarning]   = useState(false)
   const [secondsLeft, setSecondsLeft]   = useState(120)
+  const [continuing, setContinuing] = useState(false)
+  const [continueError, setContinueError] = useState(false)
 
   const lastActivityRef  = useRef<number>(Date.now())
   const showWarningRef   = useRef(false)        // mirrors state without stale closure
@@ -39,6 +41,7 @@ export function useSessionManager() {
   useEffect(() => {
     if (!showWarning) return
     countdownRef.current = setInterval(() => {
+      if (refreshingRef.current) return
       setSecondsLeft(prev => {
         if (prev <= 1) { logout(); return 0 }
         return prev - 1
@@ -58,7 +61,8 @@ export function useSessionManager() {
       const now = Date.now()
       const msLeft = exp * 1000 - now
 
-      if (msLeft <= 0) { logout(); return }
+      if (msLeft <= 0 && !refreshingRef.current) { logout(); return }
+      if (refreshingRef.current) return
 
       const isActive = (now - lastActivityRef.current) < 60_000
 
@@ -89,14 +93,22 @@ export function useSessionManager() {
 
   // ── Public API ─────────────────────────────────────────────────────────────
   const continueSession = useCallback(async () => {
-    const ok = await refreshAccessToken()
-    if (ok) {
+    if (refreshingRef.current) return
+    refreshingRef.current = true
+    setContinuing(true)
+    setContinueError(false)
+    const outcome = await requestNewToken()
+    refreshingRef.current = false
+    setContinuing(false)
+    if (outcome === 'refreshed') {
       lastActivityRef.current = Date.now()
       setShowWarning(false)
+    } else if (outcome === 'session-ended') {
+      await logout()
     } else {
-      logout()
+      setContinueError(true)
     }
   }, [])
 
-  return { showWarning, secondsLeft, continueSession }
+  return { showWarning, secondsLeft, continuing, continueError, continueSession }
 }

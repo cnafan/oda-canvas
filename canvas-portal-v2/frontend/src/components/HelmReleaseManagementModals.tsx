@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Input, Modal, Select, Spin, Table, Tooltip, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -109,7 +110,7 @@ function releaseColumns(): ColumnsType<HelmRelease> {
       },
     },
     {
-      title: 'Status',
+      title: t("Status"),
       dataIndex: 'status',
       key: 'status',
       width: 150,
@@ -122,7 +123,7 @@ function releaseColumns(): ColumnsType<HelmRelease> {
       ),
     },
     {
-      title: 'Updated',
+      title: t("Updated"),
       dataIndex: 'updated',
       key: 'updated',
       width: 220,
@@ -180,7 +181,8 @@ function ReleaseToolbar({
           color: colors.textSecondary,
         }}
       >
-        Refresh
+
+        {t("Refresh")}
       </Button>
     </div>
   )
@@ -335,7 +337,8 @@ export function HelmUpgradePickerModal({
                 onClick={onClose}
                 style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
               >
-                Cancel
+
+                {t("Cancel")}
               </Button>
               {onViewHistory && (
                 <Button
@@ -565,7 +568,8 @@ export function HelmBulkUninstallModal({
                     onClick={onClose}
                     style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
                   >
-                    Cancel
+
+                    {t("Cancel")}
                   </Button>
                   <Button
                     danger
@@ -653,7 +657,8 @@ export function HelmBulkUninstallModal({
               disabled={isRemoving}
               style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
             >
-              Back
+
+              {t("Back")}
             </Button>
             <div style={{ display: 'flex', gap: 10 }}>
               <Button
@@ -661,7 +666,8 @@ export function HelmBulkUninstallModal({
                 disabled={isRemoving}
                 style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
               >
-                Cancel
+
+                {t("Cancel")}
               </Button>
               <Button
                 danger

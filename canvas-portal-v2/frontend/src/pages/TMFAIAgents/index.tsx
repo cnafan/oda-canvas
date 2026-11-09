@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { RobotOutlined } from '@ant-design/icons'
 import { colors } from '@/theme'
@@ -34,9 +35,10 @@ export default function TMFAIAgentsPage() {
             <RobotOutlined />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>TMF AI Agents</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{t("TMF AI Agents")}</h1>
             <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>
-              Non-TMF AI agents that augment the Canvas
+
+              {t("Non-TMF AI agents that augment the Canvas")}
             </p>
           </div>
         </div>
@@ -55,7 +57,8 @@ export default function TMFAIAgentsPage() {
           }}
         >
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-          Work in progress
+
+          {t("Work in progress")}
         </div>
       </div>
 
@@ -68,7 +71,8 @@ export default function TMFAIAgentsPage() {
         }}
       >
         <h3 style={{ fontSize: 14, fontWeight: 650, color: colors.textPrimary, margin: '0 0 14px' }}>
-          Planned agents
+
+          {t("Planned agents")}
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
           {plannedAgents.map((agent) => (
@@ -84,7 +88,8 @@ export default function TMFAIAgentsPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <code style={{ fontSize: 12, fontWeight: 700, color: colors.textPrimary }}>{agent.name}</code>
                 <span style={{ fontSize: 10, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Planned
+
+                  {t("Planned")}
                 </span>
               </div>
               <p style={{ fontSize: 12, color: colors.textSecondary, margin: 0, lineHeight: 1.55 }}>{agent.summary}</p>

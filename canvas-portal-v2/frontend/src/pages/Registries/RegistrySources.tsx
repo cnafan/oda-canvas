@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Checkbox, Input, Popconfirm, Select, Spin, Tag, Tooltip, message } from 'antd'
@@ -312,7 +313,7 @@ export default function RegistrySources() {
           aria-label="Registry name"
           value={form.name}
           onChange={(e) => update({ name: e.target.value })}
-          placeholder="Registry name"
+          placeholder={t("Registry name")}
           maxLength={64}
           style={{ flex: '1 1 180px', minWidth: 180 }}
         />
@@ -328,7 +329,7 @@ export default function RegistrySources() {
           aria-label="Registry page"
           value={form.pageUrl}
           onChange={(e) => update({ pageUrl: e.target.value })}
-          placeholder="Registry page (optional)"
+          placeholder={t("Registry page (optional)")}
           maxLength={2048}
           style={{ flex: '2 1 260px', minWidth: 220 }}
         />
@@ -442,11 +443,13 @@ export default function RegistrySources() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <Checkbox checked={form.skipTlsVerify} onChange={(e) => update({ skipTlsVerify: e.target.checked })}>
-          Skip TLS verification
+
+          {t("Skip TLS verification")}
         </Checkbox>
         <div style={{ flex: 1 }} />
         <Button icon={<ApiOutlined />} onClick={handleTest} disabled={!complete} loading={testing} style={subtleButton}>
-          Test Connection
+
+          {t("Test Connection")}
         </Button>
         <Button
           type="primary"
@@ -459,11 +462,13 @@ export default function RegistrySources() {
         </Button>
         {editing && (
           <Button onClick={stopEdit} disabled={adding} style={subtleButton}>
-            Cancel
+
+            {t("Cancel")}
           </Button>
         )}
         <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={refreshing} style={subtleButton}>
-          Refresh
+
+          {t("Refresh")}
         </Button>
       </div>
 
@@ -484,7 +489,7 @@ export default function RegistrySources() {
           <Spin />
         </div>
       ) : sources.length === 0 ? (
-        <div style={{ color: colors.textMuted, fontSize: 13 }}>No registries configured yet.</div>
+        <div style={{ color: colors.textMuted, fontSize: 13 }}>{t("No registries configured yet.")}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {sources.map((source) => {
@@ -525,10 +530,10 @@ export default function RegistrySources() {
                         {source.builtin ? 'Set by chart' : AUTH_LABELS[source.authType]}
                       </Tag>
                       {healthy && !status.fullAccess && (
-                        <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>Published agents only</Tag>
+                        <Tag style={pillStyle(colors.hoverSurface, colors.textSecondary)}>{t("Published agents only")}</Tag>
                       )}
                       {source.skipTlsVerify && (
-                        <Tag style={pillStyle('rgba(245,158,11,0.15)', '#92400E')}>TLS not verified</Tag>
+                        <Tag style={pillStyle('rgba(245,158,11,0.15)', '#92400E')}>{t("TLS not verified")}</Tag>
                       )}
                     </div>
                     <div style={{ color: colors.textMuted, fontSize: 12, marginTop: 6, overflowWrap: 'anywhere' }}>
@@ -541,7 +546,7 @@ export default function RegistrySources() {
                   {(source.pageUrl || !source.builtin) && (
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {source.pageUrl && (
-                        <Tooltip title="Open URL">
+                        <Tooltip title={t("Open URL")}>
                           <Button
                             aria-label={`Open the ${source.name} registry page`}
                             icon={<ExportOutlined />}
@@ -568,17 +573,19 @@ export default function RegistrySources() {
                             onClick={() => startEdit(source)}
                             style={subtleButton}
                           >
-                            Edit
+
+                            {t("Edit")}
                           </Button>
                           <Popconfirm
                             title={`Remove ${source.name}?`}
                             description="Its saved credentials are deleted too."
-                            okText="Remove"
+                            okText={t("Remove")}
                             okButtonProps={{ danger: true }}
                             onConfirm={() => handleRemove(source)}
                           >
                             <Button icon={<DeleteOutlined />} danger disabled={busyId === source.id}>
-                              Remove
+
+                              {t("Remove")}
                             </Button>
                           </Popconfirm>
                         </>

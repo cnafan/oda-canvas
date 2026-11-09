@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -135,7 +136,7 @@ export default function ModelGatewayPage() {
   const columns: ColumnsType<ModelGatewayService> = useMemo(
     () => [
       {
-        title: 'Name',
+        title: t("Name"),
         dataIndex: 'name',
         key: 'name',
         render: (_: unknown, record) => (
@@ -146,7 +147,7 @@ export default function ModelGatewayPage() {
         ),
       },
       {
-        title: 'Models',
+        title: t("Models"),
         dataIndex: 'modelNames',
         key: 'modelNames',
         render: (value: string, record) => {
@@ -174,7 +175,7 @@ export default function ModelGatewayPage() {
         render: (value: string) => (value ? <Tag color="purple">{value}</Tag> : <Text type="secondary">—</Text>),
       },
       {
-        title: 'Endpoint',
+        title: t("Endpoint"),
         dataIndex: 'endpointUrl',
         key: 'endpointUrl',
         render: (value: string) =>
@@ -189,19 +190,19 @@ export default function ModelGatewayPage() {
           ),
       },
       {
-        title: 'Created',
+        title: t("Created"),
         dataIndex: 'createdAt',
         key: 'createdAt',
         width: 160,
         render: (value: string) => (value ? new Date(value).toLocaleString() : <Text type="secondary">—</Text>),
       },
       {
-        title: 'Actions',
+        title: t("Actions"),
         key: 'actions',
         width: 200,
         render: (_: unknown, record) => (
           <Space size={4}>
-            <Tooltip title="Test connection">
+            <Tooltip title={t("Test connection")}>
               <Button
                 size="small"
                 icon={<ThunderboltOutlined />}
@@ -209,10 +210,10 @@ export default function ModelGatewayPage() {
                 disabled={!record.endpointUrl}
               />
             </Tooltip>
-            <Tooltip title="Edit">
+            <Tooltip title={t("Edit")}>
               <Button size="small" icon={<EditOutlined />} onClick={() => setEditor({ open: true, service: record })} />
             </Tooltip>
-            <Tooltip title="Delete">
+            <Tooltip title={t("Delete")}>
               <Button
                 size="small"
                 danger
@@ -254,7 +255,7 @@ export default function ModelGatewayPage() {
             <ApiOutlined />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>Model Gateway Services</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{t("Model Gateway Services")}</h1>
             <p style={{ fontSize: 12, color: colors.textMuted, margin: '2px 0 0' }}>
               ODA <code>modelgatewayservices.oda.tmforum.org</code> · {items.length} declared
             </p>
@@ -267,7 +268,8 @@ export default function ModelGatewayPage() {
             loading={listQuery.isFetching}
             style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
           >
-            Refresh
+
+            {t("Refresh")}
           </Button>
           <Button
             type="primary"
@@ -275,7 +277,8 @@ export default function ModelGatewayPage() {
             onClick={() => setEditor({ open: true })}
             disabled={!available}
           >
-            New service
+
+            {t("New service")}
           </Button>
         </Space>
       </div>
@@ -420,10 +423,12 @@ function EditorModal({
       destroyOnClose
       footer={[
         <Button key="cancel" onClick={onClose}>
-          Cancel
+
+          {t("Cancel")}
         </Button>,
         <Button key="validate" onClick={handleValidate} loading={validateMutation.isPending}>
-          Validate
+
+          {t("Validate")}
         </Button>,
         <Button key="save" type="primary" onClick={handleSubmit} loading={saveMutation.isPending}>
           {isEdit ? 'Save' : 'Create'}
@@ -437,10 +442,10 @@ function EditorModal({
         message="Validate runs a dry-run against the Kubernetes API before saving."
       />
       <Form form={form} layout="vertical">
-        <Form.Item label="Name" name="name" rules={[{ required: true, message: 'Name is required' }]}>
+        <Form.Item label={t("Name")} name="name" rules={[{ required: true, message: 'Name is required' }]}>
           <Input disabled={isEdit} placeholder="demo-modelgatewayservice" />
         </Form.Item>
-        <Form.Item label="Namespace" name="namespace" rules={[{ required: true, message: 'Namespace is required' }]}>
+        <Form.Item label={t("Namespace")} name="namespace" rules={[{ required: true, message: 'Namespace is required' }]}>
           <Input disabled={isEdit} placeholder={DEFAULT_NAMESPACE} />
         </Form.Item>
         <Form.Item label="Spec (YAML or JSON)" name="specYaml" rules={[{ required: true, message: 'Spec is required' }]}>
@@ -486,7 +491,7 @@ function DeleteModal({
       open={state.open}
       title="Delete ModelGatewayService"
       onCancel={onClose}
-      okText="Delete"
+      okText={t("Delete")}
       okButtonProps={{
         danger: true,
         disabled: confirmName !== target.name,
@@ -499,7 +504,8 @@ function DeleteModal({
         underlying Deployment/Service and revoke its Keycloak client.
       </Paragraph>
       <Paragraph>
-        Type <Text code>{target.name}</Text> to confirm:
+
+        {t("Type")} <Text code>{target.name}</Text> to confirm:
       </Paragraph>
       <Input
         value={confirmName}

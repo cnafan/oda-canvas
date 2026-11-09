@@ -57,11 +57,11 @@ spec:
               value: {{ .Values.frontend.runtime.openanPortalUrl | quote }}
           readinessProbe:
             httpGet:
-              path: /
+              path: {{ printf "%s/" .Values.frontend.runtime.appBase | quote }}
               port: http
           livenessProbe:
             httpGet:
-              path: /
+              path: {{ printf "%s/" .Values.frontend.runtime.appBase | quote }}
               port: http
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}

@@ -3,7 +3,7 @@
 // backend — so neither is reachable by page JavaScript / XSS. Login, refresh,
 // and logout all go through the backend (/auth/*), not Keycloak directly.
 
-import { buildApiUrl } from '@/config'
+import { buildApiUrl, getBasePath } from '@/config'
 
 interface JwtPayload {
   exp?: number
@@ -58,9 +58,9 @@ export function isAuthenticated(): boolean {
   return !!getToken()
 }
 
-type RefreshOutcome = 'refreshed' | 'session-ended' | 'unavailable'
+export type RefreshOutcome = 'refreshed' | 'session-ended' | 'unavailable'
 
-async function requestNewToken(): Promise<RefreshOutcome> {
+export async function requestNewToken(): Promise<RefreshOutcome> {
   try {
     const res = await fetch(buildApiUrl('/auth/refresh'), {
       method: 'POST',
@@ -122,5 +122,5 @@ export async function logout(): Promise<void> {
   // Reset the once-per-session default-credential warning so it shows again on
   // the next sign-in (key kept in sync with DefaultCredentialWarning.tsx).
   sessionStorage.removeItem('canvas-portal.default-cred-warned')
-  window.location.assign('/')
+  window.location.assign(`${getBasePath()}/`)
 }

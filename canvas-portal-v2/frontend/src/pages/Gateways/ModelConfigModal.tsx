@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Alert, Button, Checkbox, Collapse, Form, Input, message, Modal, Select, Spin, Switch } from 'antd'
@@ -178,7 +179,8 @@ export default function ModelConfigModal({
       onCancel={onClose}
       footer={[
         <Button key="cancel" disabled={save.isPending} onClick={onClose}>
-          Cancel
+
+          {t("Cancel")}
         </Button>,
         <Button key="save" type="primary" loading={save.isPending} onClick={() => form.submit()}>
           {config ? 'Save' : 'Add model'}
@@ -189,13 +191,13 @@ export default function ModelConfigModal({
         <Form form={form} layout="vertical" size="small" initialValues={initialValues(config)} onFinish={submit}>
           <Form.Item
             name="name"
-            label="Name"
+            label={t("Name")}
             extra={help('The model name clients request. It can include * as a wildcard, for example anthropic/*.')}
             rules={[{ required: true, whitespace: true, message: 'Enter a name' }]}
           >
             <Input autoComplete="off" />
           </Form.Item>
-          <Form.Item name="provider" label="Provider" rules={[{ required: true, message: 'Choose a provider' }]}>
+          <Form.Item name="provider" label={t("Provider")} rules={[{ required: true, message: 'Choose a provider' }]}>
             <Select showSearch options={PROVIDER_OPTIONS} />
           </Form.Item>
           {provider === CUSTOM && (
@@ -211,7 +213,7 @@ export default function ModelConfigModal({
           {provider === REFERENCE && (
             <Form.Item
               name="providerReference"
-              label="Provider name"
+              label={t("Provider name")}
               rules={[{ required: true, whitespace: true, message: 'Enter the provider name' }]}
             >
               <Input autoComplete="off" />
@@ -219,21 +221,21 @@ export default function ModelConfigModal({
           )}
           <Form.Item
             name="model"
-            label="Upstream model"
+            label={t("Upstream model")}
             extra={help('The model to send to the provider. If empty, the requested name is sent.')}
           >
             <Input autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="baseUrl"
-            label="Base URL"
+            label={t("Base URL")}
             extra={help('For example https://api.openai.com/v1. Endpoint paths are added after this.')}
           >
             <Input autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="apiKey"
-            label="API key"
+            label={t("API key")}
             extra={help(
               config?.apiKeySet
                 ? 'A key is set, and is kept if you leave this empty. Changing where requests go needs the key again.'

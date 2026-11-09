@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -59,7 +60,7 @@ export default function OperatorDetail() {
       <Alert
         type="error"
         message={`Operator ${namespace}/${name} not found`}
-        action={<Button onClick={() => navigate('/operators')}>Back to Operators</Button>}
+        action={<Button onClick={() => navigate('/operators')}>{t("Back to Operators")}</Button>}
       />
     )
   }
@@ -71,7 +72,7 @@ export default function OperatorDetail() {
 
   const podColumns: ColumnsType<OperatorPod> = [
     {
-      title: 'Pod Name',
+      title: t("Pod Name"),
       dataIndex: 'name',
       key: 'name',
       render: (podName: string, record: OperatorPod) => (
@@ -94,7 +95,7 @@ export default function OperatorDetail() {
       ),
     },
     {
-      title: 'Status',
+      title: t("Status"),
       key: 'status',
       width: 120,
       render: (_: unknown, record: OperatorPod) => (
@@ -102,7 +103,7 @@ export default function OperatorDetail() {
       ),
     },
     {
-      title: 'Restarts',
+      title: t("Restarts"),
       dataIndex: 'restarts',
       key: 'restarts',
       width: 90,
@@ -118,7 +119,7 @@ export default function OperatorDetail() {
       ),
     },
     {
-      title: 'Node',
+      title: t("Node"),
       dataIndex: 'node',
       key: 'node',
       render: (node?: string) =>
@@ -129,7 +130,7 @@ export default function OperatorDetail() {
         ),
     },
     {
-      title: 'Age',
+      title: t("Age"),
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 120,
@@ -143,7 +144,7 @@ export default function OperatorDetail() {
         ),
     },
     {
-      title: 'Actions',
+      title: t("Actions"),
       key: 'actions',
       width: 110,
       render: (_: unknown, record: OperatorPod) => (
@@ -165,7 +166,8 @@ export default function OperatorDetail() {
           }}
         >
           <FileTextOutlined />
-          Logs
+
+          {t("Logs")}
         </button>
       ),
     },
@@ -179,7 +181,8 @@ export default function OperatorDetail() {
         style={{ color: colors.textSecondary, marginBottom: 16, paddingLeft: 0 }}
         onClick={() => navigate('/operators')}
       >
-        Back to Canvas Operators
+
+        {t("Back to Canvas Operators")}
       </Button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
@@ -262,7 +265,8 @@ export default function OperatorDetail() {
                   fontSize: 12,
                 }}
               >
-                Shared deployment
+
+                {t("Shared deployment")}
               </Tag>
             )}
             <span style={{ fontSize: 12, color: colors.textMuted }}>
@@ -274,12 +278,12 @@ export default function OperatorDetail() {
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
-          { label: 'Desired', value: operator.desired, color: colors.primary },
-          { label: 'Ready', value: operator.ready, color: colors.statusLive },
-          { label: 'Available', value: operator.available, color: colors.textPrimary },
+          { label: t("Desired"), value: operator.desired, color: colors.primary },
+          { label: t("Ready"), value: operator.ready, color: colors.statusLive },
+          { label: t("Available"), value: operator.available, color: colors.textPrimary },
           { label: 'Pods', value: operator.pods.length, color: colors.textSecondary },
-          { label: 'Restarts', value: restartCount, color: restartCount > 0 ? colors.statusDeprecated : colors.textSecondary },
-          { label: 'Unhealthy Pods', value: unhealthyCount, color: unhealthyCount > 0 ? colors.statusDown : colors.statusLive },
+          { label: t("Restarts"), value: restartCount, color: restartCount > 0 ? colors.statusDeprecated : colors.textSecondary },
+          { label: t("Unhealthy Pods"), value: unhealthyCount, color: unhealthyCount > 0 ? colors.statusDown : colors.statusLive },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -312,19 +316,20 @@ export default function OperatorDetail() {
           bodyStyle={{ padding: '16px 20px' }}
         >
           <div style={{ fontWeight: 600, color: colors.textMuted, marginBottom: 12, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Deployment Overview
+
+            {t("Deployment Overview")}
           </div>
-          <InfoRow label="Deployment" value={operator.deploymentName} />
-          <InfoRow label="Operator Container" value={operator.containerName || '—'} />
-          <InfoRow label="Namespace" value={operator.namespace} />
+          <InfoRow label={t("Deployment")} value={operator.deploymentName} />
+          <InfoRow label={t("Operator Container")} value={operator.containerName || '—'} />
+          <InfoRow label={t("Namespace")} value={operator.namespace} />
           <InfoRow label="Strategy" value={operator.strategy || 'RollingUpdate'} />
-          <InfoRow label="Image" value={
+          <InfoRow label={t("Image")} value={
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{imageName}</span>
               <Tag style={{ background: colors.tmfBg, color: colors.tmfText, border: 'none' }}>{imageTag}</Tag>
             </span>
           } />
-          <InfoRow label="Created" value={
+          <InfoRow label={t("Created")} value={
             operator.createdAt ? (
               <Tooltip title={dayjs(operator.createdAt).format('YYYY-MM-DD HH:mm:ss')}>
                 <span>{dayjs(operator.createdAt).fromNow()}</span>
@@ -364,14 +369,15 @@ export default function OperatorDetail() {
           bodyStyle={{ padding: '16px 20px' }}
         >
           <div style={{ fontWeight: 600, color: colors.textMuted, marginBottom: 12, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Runtime Health
+
+            {t("Runtime Health")}
           </div>
-          <InfoRow label="Replica Health" value={`${operator.ready} / ${operator.desired} ready`} />
-          <InfoRow label="Available Pods" value={operator.available} />
-          <InfoRow label="Updated Pods" value={operator.updated} />
-          <InfoRow label="Pod Restarts" value={restartCount} />
-          <InfoRow label="Pod Count" value={operator.pods.length} />
-          <InfoRow label="Primary Image" value={operator.image ? <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{operator.image}</span> : '—'} />
+          <InfoRow label={t("Replica Health")} value={`${operator.ready} / ${operator.desired} ready`} />
+          <InfoRow label={t("Available Pods")} value={operator.available} />
+          <InfoRow label={t("Updated Pods")} value={operator.updated} />
+          <InfoRow label={t("Pod Restarts")} value={restartCount} />
+          <InfoRow label={t("Pod Count")} value={operator.pods.length} />
+          <InfoRow label={t("Primary Image")} value={operator.image ? <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{operator.image}</span> : '—'} />
         </Card>
       </div>
 
@@ -394,7 +400,7 @@ export default function OperatorDetail() {
           }}
         >
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: colors.textPrimary }}>Pods and Logs</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: colors.textPrimary }}>{t("Pods and Logs")}</div>
             <div style={{ fontSize: 13, color: colors.textSecondary }}>
               Select any operator pod to inspect its current logs or download them.
             </div>

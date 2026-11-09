@@ -1,3 +1,4 @@
+import { t, currentLanguage } from '@/i18n'
 import React, { useMemo } from 'react'
 import { Tooltip } from 'antd'
 import { RightOutlined } from '@ant-design/icons'
@@ -228,9 +229,9 @@ function ComponentRow({
 
   const tooltip = (
     <div style={{ minWidth: 220 }}>
-      <div style={{ fontWeight: 700, marginBottom: 6, color: colors.textPrimary }}>{tile.name}</div>
+      <div style={{ fontWeight: 700, marginBottom: 6, color: colors.textPrimary }}>{t(tile.name)}</div>
       <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>
-        {tile.domainTitle}
+        {t(tile.domainTitle)}
       </div>
       {tile.code && (
         <div style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'monospace' }}>
@@ -239,12 +240,12 @@ function ComponentRow({
       )}
       <div style={{ marginTop: 8, fontSize: 12, color: installed ? colors.statusLive : colors.textMuted }}>
         {installed
-          ? `${tile.instances.length} installed instance${tile.instances.length > 1 ? 's' : ''}`
-          : 'Not installed'}
+          ? (currentLanguage() === 'zh' ? `已安装 ${tile.instances.length} 个实例` : `${tile.instances.length} installed instance${tile.instances.length > 1 ? 's' : ''}`)
+          : t('Not installed')}
       </div>
       {installed && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${colors.border}`, fontSize: 11, color: colors.primary, fontWeight: 600 }}>
-          {multiple ? 'Click to choose an instance' : 'Click to view component details'}
+          {t(multiple ? 'Click to choose an instance' : 'Click to view component details')}
         </div>
       )}
     </div>
@@ -261,10 +262,10 @@ function ComponentRow({
         type="button"
         aria-label={
           multiple
-            ? `Choose an instance of ${tile.name}`
+            ? `Choose an instance of ${t(tile.name)}`
             : primary
               ? `Open ${primary.name}`
-              : `TMF component ${tile.name}`
+              : `TMF component ${t(tile.name)}`
         }
         aria-disabled={!primary}
         onClick={() => {
@@ -315,7 +316,7 @@ function ComponentRow({
               WebkitBoxOrient: 'vertical',
             }}
           >
-            {tile.name}
+            {t(tile.name)}
           </div>
           {tile.code && (
             <div style={{ marginTop: 4 }}>
@@ -419,7 +420,7 @@ function DomainCard({
             letterSpacing: 0.3,
           }}
         >
-          {domain.title}
+          {t(domain.title)}
         </h3>
         <span
           style={{
@@ -500,9 +501,9 @@ function OperatorTile({ tile }: { tile: OperatorCatalogTile }) {
   const installedBorder = '#86EFAC'
   const tooltipBody = (
     <div style={{ minWidth: 220 }}>
-      <div style={{ fontWeight: 700, marginBottom: 6, color: colors.textPrimary }}>{tile.name}</div>
+      <div style={{ fontWeight: 700, marginBottom: 6, color: colors.textPrimary }}>{t(tile.name)}</div>
       <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>
-        Canvas Operator
+        {t('Canvas Operator')}
       </div>
       {tile.code && (
         <div style={{ fontSize: 11, color: colors.textMuted, fontFamily: 'monospace' }}>
@@ -511,8 +512,8 @@ function OperatorTile({ tile }: { tile: OperatorCatalogTile }) {
       )}
       <div style={{ marginTop: 8, fontSize: 12, color: installed ? colors.statusLive : colors.textMuted }}>
         {installed
-          ? `${tile.installedCount} running deployment${tile.installedCount > 1 ? 's' : ''}`
-          : 'Not installed'}
+          ? (currentLanguage() === 'zh' ? `${tile.installedCount} 个运行中的部署` : `${tile.installedCount} running deployment${tile.installedCount > 1 ? 's' : ''}`)
+          : t('Not installed')}
       </div>
     </div>
   )
@@ -546,7 +547,7 @@ function OperatorTile({ tile }: { tile: OperatorCatalogTile }) {
               WebkitBoxOrient: 'vertical',
             }}
           >
-            {tile.name}
+            {t(tile.name)}
           </div>
           {tile.code && (
             <div style={{ marginTop: 4 }}>
@@ -776,7 +777,8 @@ function OutsideCatalogCard({
         }}
       >
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: colors.textPrimary, letterSpacing: 0.3 }}>
-          Outside TMF Catalog
+
+          {t("Outside TMF Catalog")}
         </h3>
         <span style={{ position: 'absolute', right: 0, fontSize: 11, color: colors.textMuted, fontWeight: 600 }}>
           {components.length} installed

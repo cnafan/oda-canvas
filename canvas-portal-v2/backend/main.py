@@ -6,7 +6,7 @@ from config import get_settings
 from k8s.canvas_detector import detect_canvas_type, get_cached_canvas_type
 from utils.exceptions import register_exception_handlers
 from utils.ratelimit import RateLimiter
-from routers import ai_gateways, auth, components, conformance, dependent_apis, exposed_apis, gateway, helm, model_gateway, operators, pods, cluster, observability, registries
+from routers import ai_gateways, auth, components, component_registry, conformance, dependent_apis, exposed_apis, gateway, helm, model_gateway, operators, pods, cluster, observability, registries
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ register_exception_handlers(app)
 
 app.include_router(auth.router)
 app.include_router(components.router)
+app.include_router(component_registry.router)
 app.include_router(exposed_apis.router)
 app.include_router(dependent_apis.router)
 app.include_router(gateway.router)

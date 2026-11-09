@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Empty, message, Popconfirm, Space, Spin, Table, Tag, Tooltip } from 'antd'
@@ -53,12 +54,13 @@ function RemoveButton({
     <Popconfirm
       title={`Remove ${name}?`}
       description={description}
-      okText="Remove"
+      okText={t("Remove")}
       okButtonProps={{ danger: true }}
       onConfirm={onConfirm}
     >
       <Button size="small" danger loading={pending} aria-label={`Remove ${name}`}>
-        Remove
+
+        {t("Remove")}
       </Button>
     </Popconfirm>
   )
@@ -82,19 +84,19 @@ interface ModelActions {
 }
 
 const modelColumns = ({ onTest, configFor, onEdit, onRemove, removing }: ModelActions): ColumnsType<AiGatewayModel> => [
-  { title: 'Model', dataIndex: 'name' },
-  { title: 'Provider', dataIndex: 'provider' },
+  { title: t("Model"), dataIndex: 'name' },
+  { title: t("Provider"), dataIndex: 'provider' },
   { title: 'Upstream', dataIndex: 'upstream' },
   { title: 'Paths', dataIndex: 'matches', render: renderMatches },
   {
-    title: 'Status',
+    title: t("Status"),
     dataIndex: 'status',
     render: (status: AiGatewayModel['status']) => (
       <Tag color={status === 'active' ? 'green' : 'red'}>{status}</Tag>
     ),
   },
   {
-    title: 'Actions',
+    title: t("Actions"),
     key: 'actions',
     render: (_, model) => {
       const config = configFor(model.name)
@@ -111,7 +113,8 @@ const modelColumns = ({ onTest, configFor, onEdit, onRemove, removing }: ModelAc
           {config && (
             <>
               <Button size="small" aria-label={`Edit ${model.name}`} onClick={() => onEdit(config)}>
-                Edit
+
+                {t("Edit")}
               </Button>
               <RemoveButton
                 name={model.name}
@@ -137,12 +140,12 @@ interface TargetActions {
 }
 
 const toolColumns = ({ configFor, onEdit, onRemove, removing, isLastTarget }: TargetActions): ColumnsType<AiGatewayTool> => [
-  { title: 'Target', dataIndex: 'name' },
+  { title: t("Target"), dataIndex: 'name' },
   { title: 'Upstream', dataIndex: 'upstream' },
   { title: 'Paths', dataIndex: 'matches', render: renderMatches },
-  { title: 'Sessions', dataIndex: 'stateful', render: (stateful: boolean) => (stateful ? 'Stateful' : 'Stateless') },
+  { title: t("Sessions"), dataIndex: 'stateful', render: (stateful: boolean) => (stateful ? 'Stateful' : 'Stateless') },
   {
-    title: 'Actions',
+    title: t("Actions"),
     key: 'actions',
     render: (_, tool) => {
       const target = configFor(tool.name)
@@ -150,7 +153,8 @@ const toolColumns = ({ configFor, onEdit, onRemove, removing, isLastTarget }: Ta
       return (
         <Space size={8}>
           <Button size="small" aria-label={`Edit ${tool.name}`} onClick={() => onEdit(target)}>
-            Edit
+
+            {t("Edit")}
           </Button>
           <RemoveButton
             name={tool.name}
@@ -169,17 +173,17 @@ const toolColumns = ({ configFor, onEdit, onRemove, removing, isLastTarget }: Ta
 ]
 
 const agentColumns: ColumnsType<AiGatewayAgent> = [
-  { title: 'Agent', dataIndex: 'name' },
+  { title: t("Agent"), dataIndex: 'name' },
   { title: 'Paths', dataIndex: 'matches', render: renderMatches },
-  { title: 'Backend', dataIndex: 'backend' },
+  { title: t("Backend"), dataIndex: 'backend' },
 ]
 
 const trafficColumns: ColumnsType<AiGatewayTrafficPolicy> = [
-  { title: 'Route', dataIndex: 'route' },
+  { title: t("Route"), dataIndex: 'route' },
   { title: 'Paths', dataIndex: 'matches', render: renderMatches },
   { title: 'Policy', dataIndex: 'policy' },
   {
-    title: 'Settings',
+    title: t("Settings"),
     dataIndex: 'settings',
     render: (settings: AiGatewayTrafficPolicy['settings']) =>
       Object.entries(settings)
@@ -235,30 +239,30 @@ function LiveDiscovery({ data, onInspect }: { data: AiGatewaysSummary; onInspect
   const { tools, resources, partial } = data.discovered
   return (
     <>
-      <h4 style={headingStyle}>Tools available now</h4>
+      <h4 style={headingStyle}>{t("Tools available now")}</h4>
       <ConfigTable
         rows={tools}
         rowKey={(tool) => tool.name}
         emptyText="No tools available"
         columns={[
           {
-            title: 'Tool',
+            title: t("Tool"),
             dataIndex: 'name',
             render: (name: string, tool: McpTool) => (
               <InspectLink label={name} kind="tool" onClick={() => onInspect({ kind: 'tool', tool })} />
             ),
           },
-          { title: 'Description', dataIndex: 'description' },
+          { title: t("Description"), dataIndex: 'description' },
         ]}
       />
-      <h4 style={headingStyle}>Resources available now</h4>
+      <h4 style={headingStyle}>{t("Resources available now")}</h4>
       <ConfigTable
         rows={resources}
         rowKey={(resource) => resource.uri}
         emptyText="No resources available"
         columns={[
           {
-            title: 'Resource',
+            title: t("Resource"),
             dataIndex: 'name',
             render: (name: string, resource: McpResource) => (
               <InspectLink
@@ -269,7 +273,7 @@ function LiveDiscovery({ data, onInspect }: { data: AiGatewaysSummary; onInspect
             ),
           },
           { title: 'URI', dataIndex: 'uri' },
-          { title: 'Description', dataIndex: 'description' },
+          { title: t("Description"), dataIndex: 'description' },
         ]}
       />
       {partial && (
@@ -293,10 +297,10 @@ function buildSections(
   return [
     {
       key: 'models',
-      title: 'Models',
+      title: t("Models"),
       description: 'LLM consumption: the models that clients can call through the gateway.',
       link: { to: '/model-gateway-services', label: 'Open Model Gateway services' },
-      actions: ok && onAddModel ? <AddButton label="Add a model" onClick={onAddModel} /> : undefined,
+      actions: ok && onAddModel ? <AddButton label={t("Add a model")} onClick={onAddModel} /> : undefined,
       content: ok ? (
         <ConfigTable
           rows={data.models ?? []}
@@ -308,9 +312,9 @@ function buildSections(
     },
     {
       key: 'tools-resources',
-      title: 'Tools & Resources',
+      title: t("Tools & Resources"),
       description: 'MCP connectivity: the configured MCP targets, and what they serve through the gateway right now.',
-      actions: ok && onAddTarget ? <AddButton label="Add an MCP server" onClick={onAddTarget} /> : undefined,
+      actions: ok && onAddTarget ? <AddButton label={t("Add an MCP server")} onClick={onAddTarget} /> : undefined,
       content: ok ? (
         <>
           <ConfigTable
@@ -325,7 +329,7 @@ function buildSections(
     },
     {
       key: 'agents',
-      title: 'Agents',
+      title: t("Agents"),
       description: 'Agent connectivity: the routes that carry agent-to-agent (A2A) traffic.',
       content: ok ? (
         <ConfigTable
@@ -338,7 +342,7 @@ function buildSections(
     },
     {
       key: 'traffic',
-      title: 'Traffic Management',
+      title: t("Traffic Management"),
       description: 'The timeout, retry, rate limit and other policies applied to each route.',
       content: ok ? (
         <ConfigTable
@@ -463,7 +467,7 @@ export default function GatewaysPage() {
   return (
     <>
       <SectionedPage
-        title="AI Gateways"
+        title={t("AI Gateways")}
         description={data?.version ? `Active configuration of agentgateway ${data.version}` : 'Active configuration of agentgateway'}
         icon={<ApiOutlined />}
         hideWipBadge

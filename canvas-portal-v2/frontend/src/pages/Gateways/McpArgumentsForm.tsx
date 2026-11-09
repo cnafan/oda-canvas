@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { Form, Input, InputNumber, Select, Switch } from 'antd'
 import type { McpSchema } from '@/api/aiGateways'
@@ -147,7 +148,7 @@ function ArgumentField({
         allowClear
         aria-label={label}
         disabled={disabled}
-        placeholder="Not set"
+        placeholder={t("Not set")}
         // Options can be any JSON value, so select them by their JSON text.
         value={isEmpty(value) ? undefined : JSON.stringify(value)}
         onChange={(text?: string) => onChange(text === undefined ? undefined : JSON.parse(text))}
@@ -212,7 +213,7 @@ export default function McpArgumentsForm({
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: colors.textSecondary }}>Arguments</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: colors.textSecondary }}>{t("Arguments")}</span>
         {formAvailable ? (
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: colors.textSecondary }}>
             Edit as JSON

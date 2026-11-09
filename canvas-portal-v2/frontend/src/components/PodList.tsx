@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { Table, Tag, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -19,7 +20,7 @@ interface PodListProps {
 export default function PodList({ pods, loading = false, onViewLogs }: PodListProps) {
   const columns: ColumnsType<ComponentPod> = [
     {
-      title: 'Pod Name',
+      title: t("Pod Name"),
       dataIndex: 'name',
       key: 'name',
       render: (name: string) => (
@@ -38,7 +39,7 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
       ),
     },
     {
-      title: 'Status',
+      title: t("Status"),
       dataIndex: 'phase',
       key: 'phase',
       width: 110,
@@ -47,7 +48,7 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
       ),
     },
     {
-      title: 'Ready',
+      title: t("Ready"),
       key: 'ready',
       width: 70,
       render: (_: unknown, record: ComponentPod) => (
@@ -57,7 +58,7 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
       ),
     },
     {
-      title: 'Restarts',
+      title: t("Restarts"),
       dataIndex: 'restarts',
       key: 'restarts',
       width: 90,
@@ -73,7 +74,7 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
       ),
     },
     {
-      title: 'Image',
+      title: t("Image"),
       dataIndex: 'image',
       key: 'image',
       ellipsis: true,
@@ -86,7 +87,7 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
       ),
     },
     {
-      title: 'Node',
+      title: t("Node"),
       dataIndex: 'node',
       key: 'node',
       ellipsis: true,
@@ -98,7 +99,7 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
         ),
     },
     {
-      title: 'Age',
+      title: t("Age"),
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 100,
@@ -117,7 +118,7 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
 
   if (onViewLogs) {
     columns.push({
-      title: 'Actions',
+      title: t("Actions"),
       key: 'actions',
       width: 90,
       render: (_: unknown, record: ComponentPod) => (
@@ -134,7 +135,8 @@ export default function PodList({ pods, loading = false, onViewLogs }: PodListPr
             fontWeight: 500,
           }}
         >
-          Logs
+
+          {t("Logs")}
         </button>
       ),
     })

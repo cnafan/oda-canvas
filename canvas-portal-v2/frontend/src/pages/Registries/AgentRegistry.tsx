@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { Alert, Button, Drawer, Grid, Input, Select, Tooltip } from 'antd'
 import { CloseOutlined, ReloadOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons'
@@ -7,6 +8,7 @@ import { agentPagePath, refreshAgents, registryErrorMessage, useAgents, type Age
 import { HexBadge, type DomainPaint } from '@/components/ComponentTopology'
 import { colors } from '@/theme'
 import AgentDetailBody, { AgentStatusPill, isActiveAgent } from './AgentDetailBody'
+import { displayAgentName } from './displayAgentName'
 
 export const ACTIVE_PAINT: DomainPaint = { hexFill: '#16A34A', hexBorder: '#166534', badgeBg: '#DCFCE7', badgeText: '#166534' }
 export const IDLE_PAINT: DomainPaint = { hexFill: '#6B7280', hexBorder: '#4B5563', badgeBg: '#F3F4F6', badgeText: '#374151' }
@@ -64,11 +66,12 @@ function AgentTile({
 }) {
   const active = isActiveAgent(agent.publishStatus)
   const organization = organizationOf(agent)
+  const agentName = displayAgentName(agent.name, organization)
   const skillCount = agent.skills?.length ?? 0
 
   const tooltip = (
     <div style={{ minWidth: 220 }}>
-      <div style={{ fontWeight: 700, marginBottom: 6, color: colors.textPrimary }}>{agent.name}</div>
+      <div style={{ fontWeight: 700, marginBottom: 6, color: colors.textPrimary }}>{agentName}</div>
       {agent.description && (
         <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>{agent.description}</div>
       )}
@@ -87,7 +90,8 @@ function AgentTile({
           fontWeight: 600,
         }}
       >
-        Click to view agent details
+
+        {t("Click to view agent details")}
       </div>
     </div>
   )
@@ -96,7 +100,7 @@ function AgentTile({
     <Tooltip title={tooltip} color="#FFFFFF" overlayStyle={{ maxWidth: 320 }} mouseEnterDelay={0.25}>
       <button
         type="button"
-        aria-label={`Open ${agent.name}`}
+        aria-label={`Open ${agentName}`}
         onClick={onSelect}
         {...tileProps(active)}
       >
@@ -116,7 +120,7 @@ function AgentTile({
               overflowWrap: 'anywhere',
             }}
           >
-            {agent.name}
+            {agentName}
           </div>
           {organization && (
             <div style={{ marginTop: 4 }}>
@@ -217,7 +221,7 @@ export default function AgentRegistry() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Input
-          placeholder="Search agents..."
+          placeholder={t("Search agents...")}
           prefix={<SearchOutlined style={{ color: colors.textMuted }} />}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -229,7 +233,7 @@ export default function AgentRegistry() {
           onChange={setOrgFilter}
           style={{ width: 220 }}
           options={[
-            { value: 'all', label: 'All Organizations' },
+            { value: 'all', label: t("All Organizations") },
             ...organizations.map((organization) => ({ value: organization, label: organization })),
           ]}
         />
@@ -239,7 +243,7 @@ export default function AgentRegistry() {
             onChange={setRegistryFilter}
             style={{ width: 220 }}
             options={[
-              { value: 'all', label: 'All Registries' },
+              { value: 'all', label: t("All Registries") },
               ...registries.map((registry) => ({ value: registry.id, label: registry.name })),
             ]}
           />
@@ -256,13 +260,14 @@ export default function AgentRegistry() {
           loading={isFetching}
           style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
         >
-          Refresh
+
+          {t("Refresh")}
         </Button>
       </div>
 
       {isError && <Notice tone="error">{registryErrorMessage(error)}</Notice>}
 
-      {isLoading && <Notice>Loading agents…</Notice>}
+      {isLoading && <Notice>{t("Loading agents…")}</Notice>}
 
       {(data?.storeError || failedRegistries.length > 0) && (
         <Alert
@@ -292,7 +297,7 @@ export default function AgentRegistry() {
       )}
 
       {!isLoading && !isError && agents.length > 0 && filtered.length === 0 && (
-        <Notice>No agents match the current filters.</Notice>
+        <Notice>{t("No agents match the current filters.")}</Notice>
       )}
 
       {!isLoading && !isError && filtered.length > 0 && (
@@ -337,11 +342,12 @@ export default function AgentRegistry() {
                 letterSpacing: 0.6,
               }}
             >
-              Agent
+
+              {t("Agent")}
             </span>
             <span style={{ color: colors.border }}>·</span>
             <span style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 600 }}>
-              {selected ? `${selected.organization}/${selected.name}` : ''}
+              {selected ? `${selected.organization}/${displayAgentName(selected.name, selected.organization)}` : ''}
             </span>
           </div>
         }

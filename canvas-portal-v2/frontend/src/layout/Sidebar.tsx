@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
@@ -20,6 +21,7 @@ import {
   DownOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  RollbackOutlined,
 } from '@ant-design/icons'
 import { colors } from '@/theme'
 import { getAssetPath, getOpenanPortalUrl } from '@/config'
@@ -38,37 +40,37 @@ const openanUrl = getOpenanPortalUrl()
 
 const navItems: NavItem[] = [
   // DASHBOARD
-  { key: 'dashboard', label: 'Dashboard', icon: <ClusterOutlined />, path: '/', section: 'DASHBOARD' },
+  { key: 'dashboard', label: t("Dashboard"), icon: <ClusterOutlined />, path: '/', section: 'DASHBOARD' },
 
   // COMPONENTS
-  { key: 'components-inventory', label: 'Inventory', icon: <AppstoreOutlined />, path: '/components', section: 'COMPONENTS' },
-  { key: 'components-deploy', label: 'Deploy', icon: <DeploymentUnitOutlined />, path: '/components/deploy', section: 'COMPONENTS' },
-  { key: 'components-lifecycle', label: 'Lifecycle', icon: <SyncOutlined />, path: '/components/lifecycle', section: 'COMPONENTS' },
+  { key: 'components-inventory', label: t("Inventory"), icon: <AppstoreOutlined />, path: '/components', section: 'COMPONENTS' },
+  { key: 'components-deploy', label: t("Deploy"), icon: <DeploymentUnitOutlined />, path: '/components/deploy', section: 'COMPONENTS' },
+  { key: 'components-lifecycle', label: t("Lifecycle"), icon: <SyncOutlined />, path: '/components/lifecycle', section: 'COMPONENTS' },
 
   // APIS
-  { key: 'exposedapis', label: 'Exposed APIs', icon: <GlobalOutlined />, path: '/exposedapis', section: 'APIS' },
-  { key: 'dependentapis', label: 'Dependent APIs', icon: <LinkOutlined />, path: '/dependentapis', section: 'APIS' },
-  { key: 'gateway', label: 'Gateway', icon: <NodeIndexOutlined />, path: '/gateway', section: 'APIS' },
-  { key: 'servicemesh', label: 'Service Mesh', icon: <ApiOutlined />, path: '/servicemesh', section: 'APIS' },
-  { key: 'policies', label: 'Policies', icon: <SafetyCertificateOutlined />, path: '/policies', section: 'APIS' },
+  { key: 'exposedapis', label: t("Exposed APIs"), icon: <GlobalOutlined />, path: '/exposedapis', section: 'APIS' },
+  { key: 'dependentapis', label: t("Dependent APIs"), icon: <LinkOutlined />, path: '/dependentapis', section: 'APIS' },
+  { key: 'gateway', label: t("Gateway"), icon: <NodeIndexOutlined />, path: '/gateway', section: 'APIS' },
+  { key: 'servicemesh', label: t("Service Mesh"), icon: <ApiOutlined />, path: '/servicemesh', section: 'APIS' },
+  { key: 'policies', label: t("Policies"), icon: <SafetyCertificateOutlined />, path: '/policies', section: 'APIS' },
 
   // AI
-  { key: 'model-gateway', label: 'Model Gateway', icon: <RobotOutlined />, path: '/model-gateway-services', section: 'AI' },
-  { key: 'tmf-ai-agents', label: 'TMF AI Agents', icon: <RobotOutlined />, path: '/tmf-ai-agents', section: 'AI' },
-  { key: 'registries', label: 'Registries', icon: <DatabaseOutlined />, path: '/registries', section: 'AI' },
-  { key: 'gateways', label: 'AI Gateways', icon: <ApiOutlined />, path: '/gateways', section: 'AI' },
-  { key: 'high-value-scenarios', label: 'High Value Scenarios', icon: <ThunderboltOutlined />, path: '/high-value-scenarios', section: 'AI' },
+  { key: 'model-gateway', label: t("Model Gateway"), icon: <RobotOutlined />, path: '/model-gateway-services', section: 'AI' },
+  { key: 'tmf-ai-agents', label: t("TMF AI Agents"), icon: <RobotOutlined />, path: '/tmf-ai-agents', section: 'AI' },
+  { key: 'registries', label: t("Registries"), icon: <DatabaseOutlined />, path: '/registries', section: 'AI' },
+  { key: 'gateways', label: t("AI Gateways"), icon: <ApiOutlined />, path: '/gateways', section: 'AI' },
+  { key: 'high-value-scenarios', label: t("High Value Scenarios"), icon: <ThunderboltOutlined />, path: '/high-value-scenarios', section: 'AI' },
 
   // PLATFORM
-  { key: 'operators', label: 'Operators', icon: <ControlOutlined />, path: '/operators', section: 'PLATFORM' },
-  { key: 'observability', label: 'Observability', icon: <MonitorOutlined />, path: '/observability', section: 'PLATFORM' },
+  { key: 'operators', label: t("Operators"), icon: <ControlOutlined />, path: '/operators', section: 'PLATFORM' },
+  { key: 'observability', label: t("Observability"), icon: <MonitorOutlined />, path: '/observability', section: 'PLATFORM' },
   { key: 'bdd', label: 'BDD', icon: <ExperimentOutlined />, path: '/bdd', section: 'PLATFORM' },
 
   // OPENAN (external jump entries; shown only when OPENAN_PORTAL_URL is configured)
   ...(openanUrl
     ? [
         { key: 'openan-portal', label: 'OpenAN Portal', icon: <GlobalOutlined />, external: openanUrl, section: 'OPENAN' },
-        { key: 'openan-orchestration', label: 'Orchestration Center', icon: <ControlOutlined />, external: `${openanUrl}/orchestration`, section: 'OPENAN' },
+        { key: 'openan-orchestration', label: t("Orchestration Center"), icon: <ControlOutlined />, external: `${openanUrl}/orchestration`, section: 'OPENAN' },
       ]
     : []),
 ]
@@ -231,7 +233,7 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
                     textTransform: 'uppercase',
                   }}
                 >
-                  {section}
+                  {t(section)}
                 </div>
               )}
               {collapsed && section !== 'DASHBOARD' && (
@@ -389,29 +391,62 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       <div
         style={{
           borderTop: `1px solid ${sidebarBorder}`,
-          padding: '12px 16px',
-          display: 'flex',
-          justifyContent: collapsed ? 'center' : 'flex-end',
+          padding: '8px 10px 12px',
         }}
       >
-        <button
-          onClick={() => onCollapse(!collapsed)}
+        <a
+          href="/canvas-portal/index.html"
+          title={collapsed ? 'V1 Portal' : undefined}
+          aria-label="Open V1 Portal"
           style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: `1px solid ${sidebarBorder}`,
-            borderRadius: 8,
-            color: sidebarText,
-            cursor: 'pointer',
-            padding: '6px 8px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.15s ease',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: 10,
+            padding: collapsed ? '10px 0' : '10px 12px',
+            marginBottom: 8,
+            borderRadius: 8,
+            color: sidebarText,
+            textDecoration: 'none',
+            fontSize: 13.5,
           }}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = sidebarHover
+            e.currentTarget.style.color = '#FFFFFF'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = sidebarText
+          }}
         >
-          {collapsed ? <MenuUnfoldOutlined style={{ fontSize: 14 }} /> : <MenuFoldOutlined style={{ fontSize: 14 }} />}
-        </button>
+          <RollbackOutlined style={{ fontSize: 16, flexShrink: 0 }} />
+          {!collapsed && <span>{t("V1 Portal")}</span>}
+        </a>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: collapsed ? 'center' : 'flex-end',
+          }}
+        >
+          <button
+            onClick={() => onCollapse(!collapsed)}
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: `1px solid ${sidebarBorder}`,
+              borderRadius: 8,
+              color: sidebarText,
+              cursor: 'pointer',
+              padding: '6px 8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease',
+            }}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <MenuUnfoldOutlined style={{ fontSize: 14 }} /> : <MenuFoldOutlined style={{ fontSize: 14 }} />}
+          </button>
+        </div>
       </div>
     </div>
   )

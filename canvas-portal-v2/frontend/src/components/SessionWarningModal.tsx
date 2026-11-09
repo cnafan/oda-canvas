@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { Modal, Button, Progress } from 'antd'
 import { ClockCircleOutlined } from '@ant-design/icons'
 import { logout } from '@/lib/auth'
@@ -6,10 +7,12 @@ import { colors } from '@/theme'
 interface Props {
   open: boolean
   secondsLeft: number
+  continuing: boolean
+  continueError: boolean
   onContinue: () => void
 }
 
-export default function SessionWarningModal({ open, secondsLeft, onContinue }: Props) {
+export default function SessionWarningModal({ open, secondsLeft, continuing, continueError, onContinue }: Props) {
   const totalSeconds = 120
   const percent = Math.round((secondsLeft / totalSeconds) * 100)
   const isUrgent = secondsLeft <= 30
@@ -52,10 +55,12 @@ export default function SessionWarningModal({ open, secondsLeft, onContinue }: P
         </div>
 
         <h2 style={{ color: colors.textPrimary, margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>
-          Session Expiring Soon
+
+          {t("Session Expiring Soon")}
         </h2>
         <p style={{ color: colors.textSecondary, margin: '0 0 24px', fontSize: 14 }}>
-          Your session will expire due to inactivity. Click below to continue.
+
+          {t("Your session will expire due to inactivity. Click below to continue.")}
         </p>
 
         <div
@@ -79,6 +84,11 @@ export default function SessionWarningModal({ open, secondsLeft, onContinue }: P
           style={{ marginBottom: 24 }}
         />
 
+        {continueError && (
+          <p role="alert" style={{ color: colors.statusDown, marginBottom: 16 }}>
+            {t('Unable to renew the session. Please try again.')}
+          </p>
+        )}
         <div style={{ display: 'flex', gap: 10 }}>
           <Button
             block
@@ -90,7 +100,8 @@ export default function SessionWarningModal({ open, secondsLeft, onContinue }: P
             }}
             onClick={() => logout()}
           >
-            Log Out
+
+            {t("Log Out")}
           </Button>
           <Button
             type="primary"
@@ -101,9 +112,11 @@ export default function SessionWarningModal({ open, secondsLeft, onContinue }: P
               borderRadius: 8,
               fontWeight: 600,
             }}
+            loading={continuing}
             onClick={onContinue}
           >
-            Continue Session
+
+            {t("Continue Session")}
           </Button>
         </div>
       </div>

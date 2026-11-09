@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { colors } from '@/theme'
@@ -41,7 +42,8 @@ function WipBadge() {
       }}
     >
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-      Work in progress
+
+      {t("Work in progress")}
     </div>
   )
 }

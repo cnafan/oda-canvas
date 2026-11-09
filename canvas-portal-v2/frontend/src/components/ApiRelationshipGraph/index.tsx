@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { Alert, Button, Empty, Space, Spin, Tag } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
@@ -33,7 +34,7 @@ export default function ApiRelationshipGraph() {
           }}
         >
           <div>
-            <div style={{ fontSize: 15, fontWeight: 650, color: colors.textPrimary }}>API Routing Explorer</div>
+            <div style={{ fontSize: 15, fontWeight: 650, color: colors.textPrimary }}>{t("API Routing Explorer")}</div>
             <div style={{ fontSize: 12, color: colors.textMuted }}>
               Inspect ingress chains, component ownership, and dependencies across the cluster.
             </div>
@@ -43,7 +44,8 @@ export default function ApiRelationshipGraph() {
             <Tag color="cyan">{query.data?.links.length ?? 0} relationships</Tag>
             <Tag color="green">{query.data?.namespaces.length ?? 0} namespaces</Tag>
             <Button icon={<ReloadOutlined />} loading={query.isFetching} onClick={() => query.refetch()}>
-              Refresh
+
+              {t("Refresh")}
             </Button>
           </Space>
         </div>

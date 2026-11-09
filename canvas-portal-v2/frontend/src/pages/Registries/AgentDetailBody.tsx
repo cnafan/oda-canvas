@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Card, Spin, Table, Tabs, Tag } from 'antd'
@@ -20,6 +21,7 @@ import {
 } from '@/api/registries'
 import { InfoRow, RawDocumentView } from '@/pages/Components/ComponentDetailBody'
 import { colors } from '@/theme'
+import { displayAgentName } from './displayAgentName'
 
 /** Active is defined as approved for discovery in the Registry Center. */
 export function isActiveAgent(publishStatus?: string | null): boolean {
@@ -27,10 +29,10 @@ export function isActiveAgent(publishStatus?: string | null): boolean {
 }
 
 const STATUS_PILLS: Record<string, { label: string; bg: string; border: string; text: string; dot: string }> = {
-  published: { label: 'Active', bg: '#DCFCE7', border: '#86EFAC', text: '#166534', dot: '#16A34A' },
-  registered: { label: 'Registered', bg: '#FEF3C7', border: '#FCD34D', text: '#92400E', dot: '#F59E0B' },
-  rejected: { label: 'Rejected', bg: '#FEE2E2', border: '#FCA5A5', text: '#991B1B', dot: '#DC2626' },
-  deprecated: { label: 'Deprecated', bg: '#F3F4F6', border: '#D1D5DB', text: '#374151', dot: '#6B7280' },
+  published: { label: t("Active"), bg: '#DCFCE7', border: '#86EFAC', text: '#166534', dot: '#16A34A' },
+  registered: { label: t("Registered"), bg: '#FEF3C7', border: '#FCD34D', text: '#92400E', dot: '#F59E0B' },
+  rejected: { label: t("Rejected"), bg: '#FEE2E2', border: '#FCA5A5', text: '#991B1B', dot: '#DC2626' },
+  deprecated: { label: t("Deprecated"), bg: '#F3F4F6', border: '#D1D5DB', text: '#374151', dot: '#6B7280' },
 }
 
 export function AgentStatusPill({ status }: { status?: string | null }) {
@@ -96,8 +98,8 @@ const interfaceColumns: ColumnsType<AgentInterface> = [
     dataIndex: 'url',
     render: (url?: string) => <span style={{ fontFamily: 'monospace', fontSize: 12, overflowWrap: 'anywhere' }}>{url ?? '—'}</span>,
   },
-  { title: 'Protocol binding', dataIndex: 'protocolBinding', render: (value?: string) => value ?? '—' },
-  { title: 'Protocol version', dataIndex: 'protocolVersion', render: (value?: string) => value ?? '—' },
+  { title: t("Protocol binding"), dataIndex: 'protocolBinding', render: (value?: string) => value ?? '—' },
+  { title: t("Protocol version"), dataIndex: 'protocolVersion', render: (value?: string) => value ?? '—' },
 ]
 
 const reviewColumns: ColumnsType<ReviewTransition> = [
@@ -144,23 +146,23 @@ export default function AgentDetailBody({
   const tabItems = [
     {
       key: 'overview',
-      label: <span><AppstoreOutlined style={{ marginRight: 6 }} />Overview</span>,
+      label: <span><AppstoreOutlined style={{ marginRight: 6 }} />{t("Overview")}</span>,
       children: (
         <Card style={cardStyle}>
-          {registry && <InfoRow label="Registry" value={registry.name} />}
-          <InfoRow label="Organization" value={card.provider?.organization ?? '—'} />
-          <InfoRow label="Provider URL" value={<ExternalLink href={card.provider?.url} />} />
-          <InfoRow label="Description" value={card.description ?? '—'} />
-          <InfoRow label="Version" value={card.version ?? '—'} />
-          <InfoRow label="Layer" value={layer ?? '—'} />
-          <InfoRow label="Publish status" value={publishStatus ?? '—'} />
-          <InfoRow label="Documentation" value={<ExternalLink href={card.documentationUrl} />} />
-          <InfoRow label="Input modes" value={<TagList values={card.defaultInputModes} />} />
-          <InfoRow label="Output modes" value={<TagList values={card.defaultOutputModes} />} />
+          {registry && <InfoRow label={t("Registry")} value={registry.name} />}
+          <InfoRow label={t("Organization")} value={card.provider?.organization ?? '—'} />
+          <InfoRow label={t("Provider URL")} value={<ExternalLink href={card.provider?.url} />} />
+          <InfoRow label={t("Description")} value={card.description ?? '—'} />
+          <InfoRow label={t("Version")} value={card.version ?? '—'} />
+          <InfoRow label={t("Layer")} value={layer ?? '—'} />
+          <InfoRow label={t("Publish status")} value={publishStatus ?? '—'} />
+          <InfoRow label={t("Documentation")} value={<ExternalLink href={card.documentationUrl} />} />
+          <InfoRow label={t("Input modes")} value={<TagList values={card.defaultInputModes} />} />
+          <InfoRow label={t("Output modes")} value={<TagList values={card.defaultOutputModes} />} />
           {heartbeatEnabled && (
             <>
-              <InfoRow label="Health" value={health?.health_status ?? 'No heartbeat received'} />
-              <InfoRow label="Last heartbeat" value={formatTime(health?.last_heartbeat_at)} />
+              <InfoRow label={t("Health")} value={health?.health_status ?? 'No heartbeat received'} />
+              <InfoRow label={t("Last heartbeat")} value={formatTime(health?.last_heartbeat_at)} />
             </>
           )}
         </Card>
@@ -189,12 +191,12 @@ export default function AgentDetailBody({
           ))}
         </div>
       ) : (
-        <Empty>This agent declares no skills.</Empty>
+        <Empty>{t("This agent declares no skills.")}</Empty>
       ),
     },
     {
       key: 'interfaces',
-      label: <span><ApiOutlined style={{ marginRight: 6 }} />Interfaces</span>,
+      label: <span><ApiOutlined style={{ marginRight: 6 }} />{t("Interfaces")}</span>,
       children: card.supportedInterfaces?.length ? (
         <Table
           size="small"
@@ -204,29 +206,29 @@ export default function AgentDetailBody({
           dataSource={card.supportedInterfaces}
         />
       ) : (
-        <Empty>This agent declares no interfaces.</Empty>
+        <Empty>{t("This agent declares no interfaces.")}</Empty>
       ),
     },
     {
       key: 'capabilities',
-      label: <span><SettingOutlined style={{ marginRight: 6 }} />Capabilities</span>,
+      label: <span><SettingOutlined style={{ marginRight: 6 }} />{t("Capabilities")}</span>,
       children: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Card style={cardStyle}>
-            <InfoRow label="Streaming" value={capabilities.streaming ? 'Yes' : 'No'} />
-            <InfoRow label="Push notifications" value={capabilities.pushNotifications ? 'Yes' : 'No'} />
-            <InfoRow label="State history" value={capabilities.stateTransitionHistory ? 'Yes' : 'No'} />
-            <InfoRow label="Security schemes" value={<TagList values={securitySchemes} />} />
+            <InfoRow label={t("Streaming")} value={capabilities.streaming ? 'Yes' : 'No'} />
+            <InfoRow label={t("Push notifications")} value={capabilities.pushNotifications ? 'Yes' : 'No'} />
+            <InfoRow label={t("State history")} value={capabilities.stateTransitionHistory ? 'Yes' : 'No'} />
+            <InfoRow label={t("Security schemes")} value={<TagList values={securitySchemes} />} />
           </Card>
           {(capabilities.extensions ?? []).map((extension, index) => (
-            <Card key={extension.uri ?? index} size="small" title="Extension" style={cardStyle}>
+            <Card key={extension.uri ?? index} size="small" title={t("Extension")} style={cardStyle}>
               <div style={{ fontFamily: 'monospace', fontSize: 12, overflowWrap: 'anywhere', color: colors.textPrimary }}>
                 {extension.uri ?? '—'}
               </div>
               {extension.description && (
                 <div style={{ fontSize: 13, color: colors.textSecondary, marginTop: 6 }}>{extension.description}</div>
               )}
-              {extension.required && <Tag style={{ marginTop: 8 }}>Required</Tag>}
+              {extension.required && <Tag style={{ marginTop: 8 }}>{t("Required")}</Tag>}
               {extension.params && (
                 <pre style={{ fontSize: 12, margin: '8px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                   {JSON.stringify(extension.params, null, 2)}
@@ -241,7 +243,7 @@ export default function AgentDetailBody({
       ? [
           {
             key: 'review',
-            label: <span><HistoryOutlined style={{ marginRight: 6 }} />Review</span>,
+            label: <span><HistoryOutlined style={{ marginRight: 6 }} />{t("Review")}</span>,
             children: history.length ? (
               <Table
                 size="small"
@@ -291,7 +293,7 @@ export default function AgentDetailBody({
           <RobotOutlined />
         </div>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{card.name}</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{displayAgentName(card.name, card.provider?.organization)}</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
             <Tag
               style={{

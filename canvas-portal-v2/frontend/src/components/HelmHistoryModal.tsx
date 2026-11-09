@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React from 'react'
 import { Modal, Table, Tag, Spin, Alert } from 'antd'
 import { HistoryOutlined } from '@ant-design/icons'
@@ -37,7 +38,7 @@ export default function HelmHistoryModal({ open, onClose, releaseName, namespace
 
   const columns = [
     {
-      title: 'Revision',
+      title: t("Revision"),
       dataIndex: 'revision',
       width: 80,
       render: (v: number) => (
@@ -45,7 +46,7 @@ export default function HelmHistoryModal({ open, onClose, releaseName, namespace
       ),
     },
     {
-      title: 'Updated',
+      title: t("Updated"),
       dataIndex: 'updated',
       render: (v: string) => {
         if (!v) return '—'
@@ -57,7 +58,7 @@ export default function HelmHistoryModal({ open, onClose, releaseName, namespace
       },
     },
     {
-      title: 'Status',
+      title: t("Status"),
       dataIndex: 'status',
       width: 120,
       render: (v: string) => (
@@ -83,7 +84,7 @@ export default function HelmHistoryModal({ open, onClose, releaseName, namespace
       ),
     },
     {
-      title: 'Description',
+      title: t("Description"),
       dataIndex: 'description',
       ellipsis: true,
       render: (v: string) => (
@@ -98,7 +99,7 @@ export default function HelmHistoryModal({ open, onClose, releaseName, namespace
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <HistoryOutlined style={{ color: colors.primary }} />
           <div>
-            <span style={{ color: colors.textPrimary }}>Release History</span>
+            <span style={{ color: colors.textPrimary }}>{t("Release History")}</span>
             <span
               style={{
                 marginLeft: 10,

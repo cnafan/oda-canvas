@@ -25,6 +25,8 @@ server {
 
     set $backend_upstream ${BACKEND_UPSTREAM};
     set $keycloak_upstream ${KEYCLOAK_UPSTREAM};
+    # The backend scopes refresh cookies to /auth; expose them under the SPA base.
+    proxy_cookie_path /auth ${FRONTEND_BASE}/auth;
 
     location = ${FRONTEND_BASE}/api {
         proxy_pass $backend_upstream/api;

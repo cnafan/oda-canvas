@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Modal,
@@ -276,7 +277,7 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
         >
           {(
             [
-              { value: 'repo', icon: <CloudDownloadOutlined />, label: 'Helm Repository', desc: 'Install from a remote chart repo URL' },
+              { value: 'repo', icon: <CloudDownloadOutlined />, label: t("Helm Repository"), desc: 'Install from a remote chart repo URL' },
             ] as const
           ).map((opt) => (
             <label
@@ -312,7 +313,7 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
           {sectionTitle('Chart Details')}
           <Form.Item
             name="repo_name"
-            label={<span style={labelStyle}>Repository</span>}
+            label={<span style={labelStyle}>{t("Repository")}</span>}
             rules={[{ required: true, message: 'Select a repository' }]}
           >
             <Select
@@ -339,7 +340,8 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
               description="Add or sync repositories from the Deploy page, then reopen this install flow."
               action={
                 <Button size="small" onClick={() => refetchRepos()}>
-                  Retry
+
+                  {t("Retry")}
                 </Button>
               }
               style={{ marginBottom: 16, background: 'transparent', border: `1px solid ${colors.statusDown}40` }}
@@ -387,7 +389,8 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
               message="Could not load charts for the selected repository"
               action={
                 <Button size="small" onClick={() => refetchCharts()}>
-                  Retry
+
+                  {t("Retry")}
                 </Button>
               }
               style={{ marginBottom: 16, background: 'transparent', border: `1px solid ${colors.statusDown}40` }}
@@ -395,7 +398,7 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
           )}
           <Form.Item
             name="version"
-            label={<span style={labelStyle}>Chart Version <span style={{ color: colors.textMuted }}>(optional)</span></span>}
+            label={<span style={labelStyle}>{t("Chart Version")} <span style={{ color: colors.textMuted }}>(optional)</span></span>}
           >
             <Select
               allowClear
@@ -418,7 +421,8 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
         name="release_name"
         label={
           <span style={labelStyle}>
-            Release Name{mode === 'upgrade' && <span style={{ color: colors.textMuted, marginLeft: 6, fontSize: 11 }}>(locked — identifies existing release)</span>}
+
+            {t("Release Name")}{mode === 'upgrade' && <span style={{ color: colors.textMuted, marginLeft: 6, fontSize: 11 }}>(locked — identifies existing release)</span>}
             {mode === 'install' && loadingReleases && (
               <span style={{ color: colors.textMuted, marginLeft: 6, fontSize: 11 }}>
                 <SyncOutlined spin /> checking namespace…
@@ -459,7 +463,8 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
         name="namespace"
         label={
           <span style={labelStyle}>
-            Namespace{mode === 'upgrade' && <span style={{ color: colors.textMuted, marginLeft: 6, fontSize: 11 }}>(locked)</span>}
+
+            {t("Namespace")}{mode === 'upgrade' && <span style={{ color: colors.textMuted, marginLeft: 6, fontSize: 11 }}>(locked)</span>}
           </span>
         }
         rules={[{ required: true, message: 'Namespace is required' }]}
@@ -467,7 +472,7 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
         <Select
           showSearch
           disabled={mode === 'upgrade'}
-          placeholder="Select a namespace"
+          placeholder={t("Select a namespace")}
           optionFilterProp="label"
           style={{ width: '100%' }}
           options={namespaceOptions.map((ns) => ({ value: ns, label: ns }))}
@@ -480,7 +485,8 @@ function ChartDetailsStep({ initialValues, onNext, onCancel, mode }: Step1Props)
           onClick={onCancel}
           style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
         >
-          Cancel
+
+          {t("Cancel")}
         </Button>
         <Button
           type="primary"
@@ -692,7 +698,7 @@ function EditValuesStep({ step1, onBack, onInstalled, onCancel, mode, installing
               fontSize: 12,
             }}
           >
-            <span>Timeout</span>
+            <span>{t("Timeout")}</span>
             <InputNumber
               size="small"
               min={1}
@@ -769,7 +775,8 @@ function EditValuesStep({ step1, onBack, onInstalled, onCancel, mode, installing
             disabled={installing}
             style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textSecondary }}
           >
-            Cancel
+
+            {t("Cancel")}
           </Button>
           <Button
             type="primary"
@@ -792,7 +799,8 @@ function EditValuesStep({ step1, onBack, onInstalled, onCancel, mode, installing
       {installing && (
         <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, color: colors.textMuted, fontSize: 12 }}>
           <Spin size="small" />
-          Running <code>helm upgrade --install</code> for this {mode === 'upgrade' ? 'upgrade' : 'install'}… this may take up to 5 minutes.
+
+          {t("Running")} <code>helm upgrade --install</code> for this {mode === 'upgrade' ? 'upgrade' : 'install'}… this may take up to 5 minutes.
         </div>
       )}
     </div>

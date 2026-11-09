@@ -248,13 +248,13 @@ def _registry_get(path: str, params: Optional[dict] = None, source: Optional[Sou
     settings = get_settings()
     base_url = settings.REGISTRY_CENTER_URL.strip().rstrip("/")
     token = settings.REGISTRY_CENTER_TOKEN.strip()
-    if not base_url or not token:
+    if not base_url:
         raise CanvasPortalError("Registry Center not configured", 503)
     try:
         resp = httpx.get(
             f"{base_url}{API_BASE}{path}",
             params=params,
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {token}"} if token else {},
             timeout=TIMEOUT_SECONDS,
         )
     except (httpx.HTTPError, httpx.InvalidURL) as exc:
@@ -402,7 +402,7 @@ def _list_agents(full_access: bool, source: Optional[Source] = None) -> dict:
     applies its own visibility rules; the management route is never read for them.
     An external credential may lack the admin role, which also limits the listing to discovery.
     """
-    if not full_access:
+    if not full_access or (source is None and not get_settings().REGISTRY_CENTER_TOKEN.strip()):
         return _discovery_listing(source)
     try:
         body = _registry_get("/agent-cards/manage", source=source)
@@ -490,7 +490,7 @@ def _shared_task(key: tuple, function, *args) -> Future:
 
 def _builtin_configured() -> bool:
     settings = get_settings()
-    return bool(settings.REGISTRY_CENTER_URL.strip() and settings.REGISTRY_CENTER_TOKEN.strip())
+    return bool(settings.REGISTRY_CENTER_URL.strip())
 
 
 def _source_from_metadata(metadata: dict, credentials: dict[str, dict]) -> Source:

@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Dropdown, Avatar, Spin } from 'antd'
@@ -8,6 +9,7 @@ import {
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import Sidebar from './Sidebar'
+import LanguageMenu from '@/components/LanguageMenu'
 import { useAuth } from '@/hooks/useAuth'
 import { logout } from '@/lib/auth'
 import { colors } from '@/theme'
@@ -20,52 +22,52 @@ type RouteMeta = {
 
 function getRouteMeta(pathname: string): RouteMeta {
   if (pathname.startsWith('/components/deploy')) {
-    return { eyebrow: 'Components', title: 'Deploy', description: 'Install chart-backed components' }
+    return { eyebrow: t("Components"), title: t("Deploy"), description: t("Install chart-backed components") }
   }
   if (pathname.startsWith('/components/lifecycle')) {
-    return { eyebrow: 'Components', title: 'Lifecycle', description: 'Upgrade, uninstall, history' }
+    return { eyebrow: t("Components"), title: t("Lifecycle"), description: t("Upgrade, uninstall, history") }
   }
   if (pathname.startsWith('/components/')) {
-    return { eyebrow: 'Components', title: 'Component Detail', description: 'Runtime, API, pods, events' }
+    return { eyebrow: t("Components"), title: t("Component Detail"), description: t("Runtime, API, pods, events") }
   }
   if (pathname.startsWith('/components')) {
-    return { eyebrow: 'Components', title: 'Inventory', description: '' }
+    return { eyebrow: t("Components"), title: t("Inventory"), description: '' }
   }
   if (pathname.startsWith('/exposedapis')) {
-    return { eyebrow: 'APIs', title: 'Exposed APIs', description: '' }
+    return { eyebrow: 'APIs', title: t("Exposed APIs"), description: '' }
   }
   if (pathname.startsWith('/registries')) {
-    return { eyebrow: 'AI', title: 'Registries', description: '' }
+    return { eyebrow: 'AI', title: t("Registries"), description: '' }
   }
   // Must stay above '/gateway', which is also a prefix of this path.
   if (pathname.startsWith('/gateways')) {
     return { eyebrow: 'AI', title: 'Gateways', description: '' }
   }
   if (pathname.startsWith('/high-value-scenarios')) {
-    return { eyebrow: 'AI', title: 'High Value Scenarios', description: '' }
+    return { eyebrow: 'AI', title: t("High Value Scenarios"), description: '' }
   }
   if (pathname.startsWith('/gateway')) {
-    return { eyebrow: 'APIs', title: 'Gateway', description: '' }
+    return { eyebrow: 'APIs', title: t("Gateway"), description: '' }
   }
   if (pathname.startsWith('/servicemesh')) {
-    return { eyebrow: 'APIs', title: 'Service Mesh', description: '' }
+    return { eyebrow: 'APIs', title: t("Service Mesh"), description: '' }
   }
   if (pathname.startsWith('/policies') || pathname.startsWith('/ratelimiting')) {
-    return { eyebrow: 'APIs', title: 'Policies', description: '' }
+    return { eyebrow: 'APIs', title: t("Policies"), description: '' }
   }
   if (pathname.startsWith('/observability')) {
-    return { eyebrow: 'Platform', title: 'Observability', description: '' }
+    return { eyebrow: t("Platform"), title: t("Observability"), description: '' }
   }
   if (pathname.startsWith('/operators/')) {
-    return { eyebrow: 'Platform', title: 'Operator Detail', description: 'Deployment, pods, logs' }
+    return { eyebrow: t("Platform"), title: t("Operator Detail"), description: t("Deployment, pods, logs") }
   }
   if (pathname.startsWith('/operators')) {
-    return { eyebrow: 'Platform', title: 'Operators', description: '' }
+    return { eyebrow: t("Platform"), title: t("Operators"), description: '' }
   }
   if (pathname.startsWith('/bdd')) {
-    return { eyebrow: 'Platform', title: 'BDD', description: 'Work in progress' }
+    return { eyebrow: t("Platform"), title: 'BDD', description: t("Work in progress") }
   }
-  return { eyebrow: 'Dashboard', title: 'Dashboard', description: '' }
+  return { eyebrow: t("Dashboard"), title: t("Dashboard"), description: '' }
 }
 
 export default function AppLayout() {
@@ -90,7 +92,7 @@ export default function AppLayout() {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Sign Out',
+      label: t("Sign Out"),
       danger: true,
       onClick: () => logout(),
     },
@@ -169,6 +171,7 @@ export default function AppLayout() {
 
           {/* Right: user */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            <LanguageMenu />
             {/* User menu */}
             {isLoading ? (
               <Spin size="small" />

@@ -1,3 +1,5 @@
+import { t } from '@/i18n'
+import LanguageMenu from '@/components/LanguageMenu'
 import { useState } from 'react';
 import { Form, Input, Button, Alert, Typography } from 'antd';
 import {
@@ -68,6 +70,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="login-shell">
+      <div style={{ position: 'absolute', right: 24, top: 20, zIndex: 5 }}><LanguageMenu /></div>
       <div
         className="login-brand-panel"
       >
@@ -106,7 +109,8 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
               maxWidth: 420,
             }}
           >
-            Control plane for TM Forum components
+
+            {t("Control plane for TM Forum components")}
           </h1>
           <p
             style={{
@@ -117,7 +121,8 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
               maxWidth: 420,
             }}
           >
-            Secure access to component inventory, API exposure, operators, and observability.
+
+            {t("Secure access to component inventory, API exposure, operators, and observability.")}
           </p>
         </div>
 
@@ -168,7 +173,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
             <Form.Item name="username" rules={[{ required: true, message: 'Enter username' }]}>
               <Input
                 prefix={<UserOutlined style={{ color: colors.textMuted }} />}
-                placeholder="Username"
+                placeholder={t("Username")}
                 size="large"
                 style={inputStyle}
               />
@@ -177,7 +182,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
             <Form.Item name="password" rules={[{ required: true, message: 'Enter password' }]}>
               <Input.Password
                 prefix={<LockOutlined style={{ color: colors.textMuted }} />}
-                placeholder="Password"
+                placeholder={t("Password")}
                 size="large"
                 style={inputStyle}
               />
@@ -196,7 +201,8 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
                 marginTop: 8,
               }}
             >
-              Sign In
+
+              {t("Sign In")}
             </Button>
           </Form>
         )}
@@ -207,13 +213,13 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
               type="info"
               showIcon
               message="Set a new password"
-              description="Your account requires a password change before you can continue."
+              description={t("Your account requires a password change before you can continue.")}
               style={{ marginBottom: 24 }}
             />
             <Form onFinish={onSetPassword} layout="vertical" requiredMark={false}>
               <Form.Item
                 name="new_password"
-                label={<span style={{ color: colors.textSecondary }}>New Password</span>}
+                label={<span style={{ color: colors.textSecondary }}>{t("New Password")}</span>}
                 rules={[
                   { required: true, message: 'Enter a new password' },
                   { min: 8, message: 'Minimum 8 characters' },
@@ -221,7 +227,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
               >
                 <Input.Password
                   prefix={<LockOutlined style={{ color: colors.textMuted }} />}
-                  placeholder="New password (min. 8 characters)"
+                  placeholder={t("New password (min. 8 characters)")}
                   size="large"
                   style={inputStyle}
                 />
@@ -229,7 +235,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 
               <Form.Item
                 name="confirm_password"
-                label={<span style={{ color: colors.textSecondary }}>Confirm Password</span>}
+                label={<span style={{ color: colors.textSecondary }}>{t("Confirm Password")}</span>}
                 dependencies={['new_password']}
                 rules={[
                   { required: true, message: 'Confirm your new password' },
@@ -245,7 +251,7 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
               >
                 <Input.Password
                   prefix={<LockOutlined style={{ color: colors.textMuted }} />}
-                  placeholder="Confirm new password"
+                  placeholder={t("Confirm new password")}
                   size="large"
                   style={inputStyle}
                 />
@@ -264,7 +270,8 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
                   marginTop: 8,
                 }}
               >
-                Set Password & Sign In
+
+                {t("Set Password & Sign In")}
               </Button>
 
               <Button
@@ -272,7 +279,8 @@ export default function LoginPage({ onSuccess }: { onSuccess: () => void }) {
                 style={{ marginTop: 8, color: colors.textSecondary }}
                 onClick={() => { setStep('login'); setError(''); }}
               >
-                Back to login
+
+                {t("Back to login")}
               </Button>
             </Form>
           </>

@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Card, Input, Spin, Tag, message } from 'antd'
@@ -137,7 +138,8 @@ export default function ComponentsDeployPage() {
           </div>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>
-              Deploy Components
+
+              {t("Deploy Components")}
             </h1>
           </div>
         </div>
@@ -151,7 +153,8 @@ export default function ComponentsDeployPage() {
               color: colors.textSecondary,
             }}
           >
-            Inventory
+
+            {t("Inventory")}
           </Button>
           <Button
             icon={<SyncOutlined />}
@@ -173,17 +176,18 @@ export default function ComponentsDeployPage() {
               color: colors.textSecondary,
             }}
           >
-            Refresh
+
+            {t("Refresh")}
           </Button>
         </div>
       </div>
 
 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
         {[
-          { label: 'Discovered Components', value: components?.length ?? 0, color: colors.primary },
-          { label: 'Healthy / Running', value: healthyCount, color: colors.statusLive },
-          { label: 'Ready Repos', value: readyRepos, color: colors.textPrimary },
-          { label: 'Default Namespace', value: defaultNamespace, color: colors.textPrimary },
+          { label: t("Discovered Components"), value: components?.length ?? 0, color: colors.primary },
+          { label: t("Healthy / Running"), value: healthyCount, color: colors.statusLive },
+          { label: t("Ready Repos"), value: readyRepos, color: colors.textPrimary },
+          { label: t("Default Namespace"), value: defaultNamespace, color: colors.textPrimary },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -224,10 +228,12 @@ export default function ComponentsDeployPage() {
               marginBottom: 10,
             }}
           >
-            New Deployment
+
+            {t("New Deployment")}
           </div>
           <h2 style={{ fontSize: 18, color: colors.textPrimary, margin: '0 0 10px' }}>
-            Install a Helm chart into the canvas
+
+            {t("Install a Helm chart into the canvas")}
           </h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
             {['Repository charts', 'Edit values before install'].map((item) => (
@@ -251,7 +257,8 @@ export default function ComponentsDeployPage() {
             onClick={() => openInstallModal()}
             style={{ background: colors.primary, border: 'none' }}
           >
-            Install Component
+
+            {t("Install Component")}
           </Button>
         </Card>
 
@@ -276,17 +283,19 @@ export default function ComponentsDeployPage() {
               marginBottom: 10,
             }}
           >
-            Helm Repositories
+
+            {t("Helm Repositories")}
           </div>
           <h2 style={{ fontSize: 18, color: colors.textPrimary, margin: '0 0 18px' }}>
-            Add and sync chart sources
+
+            {t("Add and sync chart sources")}
           </h2>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             <Input
               value={repoName}
               onChange={(e) => setRepoName(e.target.value)}
-              placeholder="Repository name"
+              placeholder={t("Repository name")}
               style={{ flex: '1 1 180px', minWidth: 180 }}
             />
             <Input
@@ -303,7 +312,8 @@ export default function ComponentsDeployPage() {
               loading={addingRepo}
               style={{ background: colors.primary, border: 'none' }}
             >
-              Add Repo
+
+              {t("Add Repo")}
             </Button>
             <Button
               icon={<ReloadOutlined />}
@@ -314,7 +324,8 @@ export default function ComponentsDeployPage() {
                 color: colors.textSecondary,
               }}
             >
-              Refresh
+
+              {t("Refresh")}
             </Button>
           </div>
 
@@ -333,7 +344,8 @@ export default function ComponentsDeployPage() {
             </div>
           ) : (repositories ?? []).length === 0 ? (
             <div style={{ color: colors.textMuted, fontSize: 13 }}>
-              No Helm repositories configured yet.
+
+              {t("No Helm repositories configured yet.")}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -377,7 +389,8 @@ export default function ComponentsDeployPage() {
                       </div>
                       {repo.last_synced_at && (
                         <div style={{ color: colors.textMuted, fontSize: 11, marginTop: 6 }}>
-                          Last synced: {repo.last_synced_at}
+
+                          {t("Last synced:")} {repo.last_synced_at}
                         </div>
                       )}
                       {repo.error && (
@@ -397,7 +410,8 @@ export default function ComponentsDeployPage() {
                           color: colors.textSecondary,
                         }}
                       >
-                        Sync
+
+                        {t("Sync")}
                       </Button>
                       <Button
                         icon={<DeploymentUnitOutlined />}
@@ -415,7 +429,8 @@ export default function ComponentsDeployPage() {
                           color: colors.primary,
                         }}
                       >
-                        Install From Repo
+
+                        {t("Install From Repo")}
                       </Button>
                       <Button
                         icon={<DeleteOutlined />}
@@ -423,7 +438,8 @@ export default function ComponentsDeployPage() {
                         disabled={busyRepoName === repo.name}
                         onClick={() => handleDeleteRepository(repo.name)}
                       >
-                        Remove
+
+                        {t("Remove")}
                       </Button>
                     </div>
                   </div>

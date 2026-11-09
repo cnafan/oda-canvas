@@ -20,6 +20,7 @@ import {
 } from '@/api/registries'
 import { InfoRow, RawDocumentView } from '@/pages/Components/ComponentDetailBody'
 import { colors } from '@/theme'
+import { AgentIcon } from './registryUi'
 
 /** Active is defined as approved for discovery in the Registry Center. */
 export function isActiveAgent(publishStatus?: string | null): boolean {
@@ -275,21 +276,26 @@ export default function AgentDetailBody({
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            background: colors.primaryGradient,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: 20,
-          }}
-        >
-          <RobotOutlined />
-        </div>
+        <AgentIcon
+          iconUrl={card.iconUrl}
+          fallback={
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: colors.primaryGradient,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: 20,
+              }}
+            >
+              <RobotOutlined />
+            </div>
+          }
+        />
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{card.name}</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>

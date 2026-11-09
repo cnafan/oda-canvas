@@ -83,10 +83,10 @@ export function RegistryIcon({ pageUrl }: { pageUrl?: string | null }) {
   )
 }
 
-/** An agent's own icon from its card's `iconUrl`; renders nothing when there is none or it fails to load. */
-export function AgentIcon({ iconUrl }: { iconUrl?: string }) {
+/** An agent's own icon from its card's `iconUrl`; renders the fallback (default nothing) when there is none or it fails to load. */
+export function AgentIcon({ iconUrl, fallback = null }: { iconUrl?: string; fallback?: React.ReactNode }) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
-  if (!iconUrl || !/^(https?:|data:image\/)/i.test(iconUrl) || failedSrc === iconUrl) return null
+  if (!iconUrl || !/^(https?:|data:image\/)/i.test(iconUrl) || failedSrc === iconUrl) return <>{fallback}</>
   return (
     <img
       src={iconUrl}

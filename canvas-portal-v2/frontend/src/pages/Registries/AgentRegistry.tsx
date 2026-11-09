@@ -7,6 +7,7 @@ import { agentPagePath, refreshAgents, registryErrorMessage, useAgents, type Age
 import { HexBadge, type DomainPaint } from '@/components/ComponentTopology'
 import { colors } from '@/theme'
 import AgentDetailBody, { AgentStatusPill, isActiveAgent } from './AgentDetailBody'
+import { AgentIcon } from './registryUi'
 
 export const ACTIVE_PAINT: DomainPaint = { hexFill: '#16A34A', hexBorder: '#166534', badgeBg: '#DCFCE7', badgeText: '#166534' }
 export const IDLE_PAINT: DomainPaint = { hexFill: '#6B7280', hexBorder: '#4B5563', badgeBg: '#F3F4F6', badgeText: '#374151' }
@@ -100,7 +101,10 @@ function AgentTile({
         onClick={onSelect}
         {...tileProps(active)}
       >
-        <HexBadge paint={active ? ACTIVE_PAINT : IDLE_PAINT} label="AGENT" />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <HexBadge paint={active ? ACTIVE_PAINT : IDLE_PAINT} label="AGENT" />
+          <AgentIcon iconUrl={agent.iconUrl} />
+        </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div

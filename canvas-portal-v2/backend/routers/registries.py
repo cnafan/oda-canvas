@@ -354,7 +354,7 @@ def _clean_card(card) -> Optional[dict]:
     schemes = card.get("securitySchemes")
     schemes = schemes if isinstance(schemes, dict) and _is_shallow(schemes) else {}
     return {
-        **_only_text(card, ("name", "description", "version", "documentationUrl", "publishStatus")),
+        **_only_text(card, ("name", "description", "version", "documentationUrl", "iconUrl", "publishStatus")),
         "provider": _only_text(provider, ("organization", "url")),
         "skills": [cleaned for cleaned in map(_clean_skill, skills) if cleaned],
         "supportedInterfaces": [

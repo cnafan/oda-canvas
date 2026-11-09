@@ -29,6 +29,7 @@ export interface AgentCard {
   description?: string
   version?: string
   documentationUrl?: string
+  iconUrl?: string
   provider?: { organization?: string; url?: string }
   skills?: AgentSkill[]
   supportedInterfaces?: AgentInterface[]

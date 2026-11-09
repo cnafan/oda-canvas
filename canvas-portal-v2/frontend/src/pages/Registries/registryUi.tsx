@@ -82,3 +82,18 @@ export function RegistryIcon({ pageUrl }: { pageUrl?: string | null }) {
     </div>
   )
 }
+
+/** An agent's own icon from its card's `iconUrl`; renders nothing when there is none or it fails to load. */
+export function AgentIcon({ iconUrl }: { iconUrl?: string }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  if (!iconUrl || !/^(https?:|data:image\/)/i.test(iconUrl) || failedSrc === iconUrl) return null
+  return (
+    <img
+      src={iconUrl}
+      alt=""
+      referrerPolicy="no-referrer"
+      onError={() => setFailedSrc(iconUrl)}
+      style={{ width: ICON_SIZE, height: ICON_SIZE, objectFit: 'contain', flexShrink: 0 }}
+    />
+  )
+}

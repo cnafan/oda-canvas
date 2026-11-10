@@ -1,14 +1,22 @@
 import { t } from '@/i18n'
 import React, { useState } from 'react'
-import { Alert, Button, Drawer, Grid, Input, Select, Tooltip } from 'antd'
+import { Alert, Button, Drawer, Grid, Input, Select, Tag, Tooltip } from 'antd'
 import { CloseOutlined, ReloadOutlined, RightOutlined, SearchOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { agentPagePath, refreshAgents, registryErrorMessage, useAgents, type AgentListItem } from '@/api/registries'
+import {
+  agentPagePath,
+  refreshAgents,
+  registryErrorMessage,
+  useAgentDetail,
+  useAgents,
+  type AgentListItem,
+} from '@/api/registries'
 import { HexBadge, type DomainPaint } from '@/components/ComponentTopology'
 import { colors } from '@/theme'
 import AgentDetailBody, { AgentStatusPill, isActiveAgent } from './AgentDetailBody'
 import { displayAgentName } from './displayAgentName'
+import { AgentIcon } from './registryUi'
 
 export const ACTIVE_PAINT: DomainPaint = { hexFill: '#16A34A', hexBorder: '#166534', badgeBg: '#DCFCE7', badgeText: '#166534' }
 export const IDLE_PAINT: DomainPaint = { hexFill: '#6B7280', hexBorder: '#4B5563', badgeBg: '#F3F4F6', badgeText: '#374151' }
@@ -68,6 +76,16 @@ function AgentTile({
   const organization = organizationOf(agent)
   const agentName = displayAgentName(agent.name, organization)
   const skillCount = agent.skills?.length ?? 0
+  const paint = active ? ACTIVE_PAINT : IDLE_PAINT
+  // The layer is only in the agent's details; version and status fall back to the listing until they load.
+  const { data: detail } = useAgentDetail(
+    organization,
+    agent.name,
+    agent.registry && !agent.registry.builtin ? agent.registry.id : undefined
+  )
+  const layer = detail?.layer
+  const version = detail?.card.version ?? agent.version
+  const publishStatus = detail?.publishStatus ?? agent.publishStatus
 
   const tooltip = (
     <div style={{ minWidth: 220 }}>
@@ -104,7 +122,10 @@ function AgentTile({
         onClick={onSelect}
         {...tileProps(active)}
       >
-        <HexBadge paint={active ? ACTIVE_PAINT : IDLE_PAINT} label="AGENT" />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <HexBadge paint={active ? ACTIVE_PAINT : IDLE_PAINT} label="AGENT" />
+          <AgentIcon iconUrl={agent.iconUrl} />
+        </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
@@ -122,15 +143,15 @@ function AgentTile({
           >
             {agentName}
           </div>
-          {organization && (
-            <div style={{ marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+            {organization && (
               <span
                 style={{
                   display: 'inline-block',
                   padding: '1px 6px',
                   borderRadius: 4,
-                  background: (active ? ACTIVE_PAINT : IDLE_PAINT).badgeBg,
-                  color: (active ? ACTIVE_PAINT : IDLE_PAINT).badgeText,
+                  background: paint.badgeBg,
+                  color: paint.badgeText,
                   fontSize: 10,
                   fontWeight: 700,
                   fontFamily: 'monospace',
@@ -139,8 +160,11 @@ function AgentTile({
               >
                 {organization}
               </span>
-            </div>
-          )}
+            )}
+            {layer && <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>{layer}</Tag>}
+            {version && <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>v{version}</Tag>}
+            <AgentStatusPill status={publishStatus} />
+          </div>
           {showRegistry && agent.registry && (
             <div style={{ fontSize: 11, color: colors.textMuted, marginTop: 4, overflowWrap: 'anywhere' }}>
               {agent.registry.name}
@@ -148,10 +172,7 @@ function AgentTile({
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <AgentStatusPill status={agent.publishStatus} />
-          <RightOutlined style={{ fontSize: 11, color: colors.textMuted }} />
-        </div>
+        <RightOutlined style={{ fontSize: 11, color: colors.textMuted, flexShrink: 0 }} />
       </button>
     </Tooltip>
   )

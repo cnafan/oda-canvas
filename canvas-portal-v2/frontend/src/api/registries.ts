@@ -29,6 +29,7 @@ export interface AgentCard {
   description?: string
   version?: string
   documentationUrl?: string
+  iconUrl?: string
   provider?: { organization?: string; url?: string }
   skills?: AgentSkill[]
   supportedInterfaces?: AgentInterface[]
@@ -188,6 +189,14 @@ export async function fetchAgent(organization: string, name: string, registryId?
   const path = registryId ? `${encodeURIComponent(registryId)}/${agentPath}` : agentPath
   const { data } = await apiClient.get<AgentDetail>(`/api/registries/agents/${path}`)
   return data
+}
+
+/** One agent's details. The agent cards and the detail drawer share this cache entry. */
+export function useAgentDetail(organization: string, name: string, registryId?: string) {
+  return useQuery({
+    queryKey: ['registry-agent', registryId ?? null, organization, name],
+    queryFn: () => fetchAgent(organization, name, registryId),
+  })
 }
 
 /** The page URL of an agent. In-cluster agents keep their original, shorter URL. */

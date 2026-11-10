@@ -1,6 +1,5 @@
 import { t } from '@/i18n'
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Alert, Card, Spin, Table, Tabs, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -14,7 +13,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import {
-  fetchAgent,
+  useAgentDetail,
   registryErrorMessage,
   type AgentInterface,
   type ReviewTransition,
@@ -22,6 +21,7 @@ import {
 import { InfoRow, RawDocumentView } from '@/pages/Components/ComponentDetailBody'
 import { colors } from '@/theme'
 import { displayAgentName } from './displayAgentName'
+import { AgentIcon } from './registryUi'
 
 /** Active is defined as approved for discovery in the Registry Center. */
 export function isActiveAgent(publishStatus?: string | null): boolean {
@@ -122,10 +122,7 @@ export default function AgentDetailBody({
 }) {
   const [rawFormat, setRawFormat] = useState<'yaml' | 'json'>('yaml')
 
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['registry-agent', registryId ?? null, organization, name],
-    queryFn: () => fetchAgent(organization, name, registryId),
-  })
+  const { data, isLoading, isError, error } = useAgentDetail(organization, name, registryId)
 
   if (isLoading) {
     return (
@@ -277,21 +274,26 @@ export default function AgentDetailBody({
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 10,
-            background: colors.primaryGradient,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: 20,
-          }}
-        >
-          <RobotOutlined />
-        </div>
+        <AgentIcon
+          iconUrl={card.iconUrl}
+          fallback={
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: colors.primaryGradient,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: 20,
+              }}
+            >
+              <RobotOutlined />
+            </div>
+          }
+        />
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: colors.textPrimary, margin: 0 }}>{displayAgentName(card.name, card.provider?.organization)}</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
